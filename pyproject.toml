@@ -1,0 +1,19 @@
+[project]
+name = "comfyui-fl-yue2"
+version = "0.1.0"
+description = "YuE2 music composition and generation nodes for ComfyUI"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+dependencies = ["tiktoken>=0.12.0", "safetensors>=0.4.2", "filelock"]
+
+[project.urls]
+Repository = "https://github.com/filliptm/ComfyUI-FL-YuE2"
+Funding = "https://www.patreon.com/Machinedelusions"
+
+[tool.comfy]
+PublisherId = "machinedelusions"
+DisplayName = "ComfyUI-FL-YuE2"
+Icon = "https://avatars.githubusercontent.com/u/55672949"
+
+[tool.ruff]
+line-length = 160

@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="870" viewBox="0 0 1500 870" role="img" aria-labelledby="title description">
+<title id="title">FL YuE2 score editor workflow</title>
+<desc id="description">Load Models supplies Compose, Render and Decode. Piano Roll supplies an editable ABC score to Compose, then Render Music and Decode Audio feed standard ComfyUI Preview Audio and Save Audio nodes.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>
+<rect width="1500" height="870" rx="18" fill="#141017"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#f5edf8">
+<text x="30" y="42" font-size="27" fill="#f5edf8">FL YuE2  /  Piano roll to music</text>
+<text x="30" y="70" font-size="16" fill="#baa6c7">Editable ABC score • YuE2-3B • Standard ComfyUI audio outputs</text>
+<path d="M260 172 H280 V102 H875 V170 H900" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M260 205 H285 V650 H875 V418 H900" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M260 238 H275 V810 H1180 V430 H1200" fill="none" stroke="#b194ec" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M830 172 H900" fill="none" stroke="#e4bd71" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M1160 260 H1180 V338 H880 V390 H900" fill="none" stroke="#e4bd71" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M1160 476 C1180 476 1180 404 1200 404" fill="none" stroke="#65b8ed" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M1320 510 V565" fill="none" stroke="#b194ec" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<path d="M1440 474 H1460 V700 H1440" fill="none" stroke="#b194ec" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
+<rect x="30" y="120" width="230" height="200" rx="10" fill="#35004c" stroke="#755083"/>
+<path d="M40 120H250Q260 120 260 130V156H30V130Q30 120 40 120" fill="#16727c"/>
+<text x="44" y="145" font-size="17" fill="#f5edf8">Load Models</text>
+<text x="45" y="172" font-size="15" fill="#f5edf8">music_model</text>
+<text x="45" y="206" font-size="15" fill="#cdb9dd">YuE2-3B</text>
+<text x="45" y="240" font-size="15" fill="#f5edf8">audio_decoder</text>
+<text x="45" y="280" font-size="14" fill="#52cfb1">Download missing: on</text>
+<text x="45" y="304" font-size="13" fill="#cdb9dd">models/yue2/</text>
+<rect x="310" y="120" width="520" height="485" rx="10" fill="#35004c" stroke="#755083"/>
+<path d="M320 120H820Q830 120 830 130V156H310V130Q310 120 320 120" fill="#16727c"/>
+<text x="324" y="145" font-size="17" fill="#f5edf8">Piano Roll</text>
+<text x="326" y="188" font-size="15" fill="#f5edf8">Tempo 88    Key Am    Instrumental melody</text>
+<text x="326" y="220" font-size="14" fill="#d7c2e2">Play / Pause     Stop     Metronome     Section: verse</text>
+<rect x="326" y="264" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="264" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="271" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="271" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="278" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="278" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="285" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="285" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="292" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="292" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="299" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="299" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="306" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="306" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="313" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="313" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="320" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="320" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="327" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="327" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="334" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="334" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="341" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="341" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="348" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="348" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="355" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="355" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="362" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="362" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="369" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="369" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="376" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="376" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="383" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="383" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="390" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="390" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="397" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="397" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="404" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="404" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="411" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="411" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="418" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="418" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="425" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="425" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="432" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="432" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="439" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="439" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="446" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="446" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="453" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="453" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="460" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="460" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="467" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="467" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="474" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="474" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="481" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="481" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="488" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="488" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="495" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="495" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="502" width="32" height="7" fill="#32203c"/>
+<rect x="358" y="502" width="454" height="7" fill="#211029" stroke="#49324e" stroke-width=".3"/>
+<rect x="326" y="509" width="32" height="7" fill="#e6dfea"/>
+<rect x="358" y="509" width="454" height="7" fill="#302038" stroke="#49324e" stroke-width=".3"/>
+<path d="M358.0 264v252" stroke="#aa8eb5" stroke-width=".7"/>
+<path d="M386.375 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M414.75 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M443.125 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M471.5 264v252" stroke="#aa8eb5" stroke-width=".7"/>
+<path d="M499.875 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M528.25 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M556.625 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M585.0 264v252" stroke="#aa8eb5" stroke-width=".7"/>
+<path d="M613.375 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M641.75 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M670.125 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M698.5 264v252" stroke="#aa8eb5" stroke-width=".7"/>
+<path d="M726.875 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M755.25 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M783.625 264v252" stroke="#54375f" stroke-width=".7"/>
+<path d="M812.0 264v252" stroke="#aa8eb5" stroke-width=".7"/>
+<text x="362.0" y="255" font-size="12" fill="#d7c2e2">Bar 1</text>
+<text x="475.5" y="255" font-size="12" fill="#d7c2e2">Bar 2</text>
+<text x="589.0" y="255" font-size="12" fill="#d7c2e2">Bar 3</text>
+<text x="702.5" y="255" font-size="12" fill="#d7c2e2">Bar 4</text>
+<rect x="358.00" y="398" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="372.19" y="363" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="386.38" y="342" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="414.75" y="349" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="428.94" y="363" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="443.12" y="377" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="471.50" y="391" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="485.69" y="363" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="499.88" y="328" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="528.25" y="342" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="542.44" y="363" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="556.62" y="391" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="585.00" y="377" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="599.19" y="349" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="613.38" y="328" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="641.75" y="342" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="655.94" y="349" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="670.12" y="363" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="698.50" y="363" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="712.69" y="342" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="726.88" y="314" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<rect x="755.25" y="328" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="769.44" y="342" width="14.19" height="5" rx="1" fill="#52cfb1"/>
+<rect x="783.62" y="363" width="28.38" height="5" rx="1" fill="#52cfb1"/>
+<text x="326" y="545" font-size="13" fill="#d7c2e2">Shift-drag selects notes • Drag to move and audition</text>
+<text x="326" y="580" font-size="15" fill="#f5edf8">▸ Harmony (optional)</text>
+<rect x="900" y="120" width="260" height="190" rx="10" fill="#35004c" stroke="#755083"/>
+<path d="M910 120H1150Q1160 120 1160 130V156H900V130Q900 120 910 120" fill="#16727c"/>
+<text x="914" y="145" font-size="17" fill="#f5edf8">Compose</text>
+<text x="916" y="174" font-size="16" fill="#f5edf8">Instrumental trip hop</text>
+<text x="916" y="204" font-size="14" fill="#d7c2e2">Rhodes • flute • deep bass</text>
+<text x="916" y="237" font-size="14" fill="#f5edf8">Lyrics: blank     Planning: full</text>
+<text x="916" y="277" font-size="14" fill="#e4bd71">Uses the supplied score</text>
+<rect x="900" y="370" width="260" height="225" rx="10" fill="#35004c" stroke="#755083"/>
+<path d="M910 370H1150Q1160 370 1160 380V406H900V380Q900 370 910 370" fill="#16727c"/>
+<text x="914" y="395" font-size="17" fill="#f5edf8">Render Music</text>
+<text x="916" y="425" font-size="15" fill="#f5edf8">Maximum duration: 45 s</text>
+<text x="916" y="460" font-size="15" fill="#f5edf8">Acoustic steps: 32</text>
+<text x="916" y="495" font-size="15" fill="#f5edf8">Temperature: 1.0</text>
+<text x="916" y="530" font-size="15" fill="#f5edf8">Guidance: 1.0</text>
+<text x="916" y="574" font-size="13" fill="#65b8ed">Music → acoustic latents</text>
+<rect x="1200" y="370" width="240" height="140" rx="10" fill="#35004c" stroke="#755083"/>
+<path d="M1210 370H1430Q1440 370 1440 380V406H1200V380Q1200 370 1210 370" fill="#16727c"/>
+<text x="1214" y="395" font-size="17" fill="#f5edf8">Decode Audio</text>
+<text x="1216" y="427" font-size="18" fill="#f5edf8">48 kHz stereo</text>
+<text x="1216" y="466" font-size="14" fill="#d7c2e2">Core ComfyUI AUDIO</text>
+<rect x="1200" y="565" width="240" height="90" rx="10" fill="#302c35" stroke="#755083"/>
+<path d="M1210 565H1430Q1440 565 1440 575V601H1200V575Q1200 565 1210 565" fill="#49444f"/>
+<text x="1214" y="590" font-size="17" fill="#f5edf8">Preview Audio</text>
+<text x="1216" y="628" font-size="15" fill="#f5edf8">Listen to the result</text>
+<rect x="1200" y="690" width="240" height="90" rx="10" fill="#302c35" stroke="#755083"/>
+<path d="M1210 690H1430Q1440 690 1440 700V726H1200V700Q1200 690 1210 690" fill="#49444f"/>
+<text x="1214" y="715" font-size="17" fill="#f5edf8">Save Audio (Advanced)</text>
+<text x="1216" y="753" font-size="13" fill="#f5edf8">FLAC • output/audio/YuE2/</text>
+<text x="310" y="700" font-size="19" fill="#f5edf8">One included workflow. Edit the score, describe the sound, then queue.</text>
+<text x="310" y="730" font-size="15" fill="#baa6c7">Music-model and VAE downloads start only when you queue Load Models.</text>
+<text x="30" y="848" font-size="13" fill="#baa6c7">Workflow overview generated from the exported ComfyUI graph. The piano grid shows its actual score notes.</text>
+</g></svg>
