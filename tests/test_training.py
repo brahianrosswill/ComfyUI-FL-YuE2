@@ -1,4 +1,7 @@
 import json
+from pathlib import Path
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from threading import Event
 from types import SimpleNamespace
@@ -9,16 +12,16 @@ import soundfile as sf
 import torch
 import comfy.lora
 from comfy.model_patcher import ModelPatcher
-from fl_yue2.runtime import MusicModel
-from fl_yue2.adapters import patch_music
+from fl_yue2.yue2.runtime import MusicModel
+from fl_yue2.yue2.adapters import patch_music
 from torch import nn
 from safetensors.torch import save_file, load_file
 
-from fl_yue2.model import YuE2Model, StaticKVCache
-from fl_yue2.training.math import hidden
-from fl_yue2.training.trainer import install_lora, export_adapter, rng_state, restore_rng
-from fl_yue2.training.data import dataset, read_json, write_json, fingerprint, run_name, regularizer, check_dataset
-from fl_yue2.training.captioning import caption, validate_response
+from fl_yue2.yue2.model import YuE2Model, StaticKVCache
+from fl_yue2.yue2.training.math import hidden
+from fl_yue2.yue2.training.trainer import install_lora, export_adapter, rng_state, restore_rng
+from fl_yue2.yue2.training.data import dataset, read_json, write_json, fingerprint, run_name, regularizer, check_dataset
+from fl_yue2.yue2.training.captioning import caption, validate_response
 
 
 def tiny_model():
@@ -98,7 +101,7 @@ def test_run_containment(name):
 
 
 def test_token_only_regularizer_rejects_acoustic_mode(tmp_path):
-    from fl_yue2.training.trainer import train
+    from fl_yue2.yue2.training.trainer import train
     with pytest.raises(ValueError, match="Only AR"):
         train({"config": {"mode": "nar", "seed": 0}, "assets": {}}, lambda _: None, lambda: None)
 
@@ -157,7 +160,7 @@ def test_caption_segments_keep_repeated_lyrics_and_whole_song_style(tmp_path):
 
 @pytest.mark.parametrize("always_incomplete", [False, True])
 def test_caption_splits_incomplete_short_tracks(tmp_path, monkeypatch, always_incomplete):
-    from fl_yue2.training import captioning
+    from fl_yue2.yue2.training import captioning
     sf.write(tmp_path / "song.wav", np.zeros(104 * 8000), 8000)
     durations = []
     def listen(client, audio, request, prompt, emit, cancelled):
@@ -199,7 +202,7 @@ def test_adapter_strength_and_original_patcher_isolation(tmp_path):
 
 @pytest.fixture
 def saved_trainer_run(tmp_path, monkeypatch):
-    from fl_yue2.training import nodes as training_nodes
+    from fl_yue2.yue2.training import nodes as training_nodes
     monkeypatch.setattr(training_nodes, "output_root", lambda: tmp_path)
     settings = {"style": "piano", "lyrics": "", "seed": 42, "max_seconds": 8}
     root = tmp_path / "saved"
@@ -301,7 +304,7 @@ def test_failed_preview_does_not_resume_training(saved_trainer_run, monkeypatch,
 
 def test_examples_have_direct_adapter_links():
     from pathlib import Path
-    from fl_yue2.training.nodes import TRAINING_NODES
+    from fl_yue2.yue2.training.nodes import TRAINING_NODES
     assert "FL_YuE2_CheckpointCompare" not in TRAINING_NODES
     for path in (Path(__file__).parents[1] / "example_workflows").glob("*.json"):
         graph = read_json(path)
@@ -316,7 +319,7 @@ def test_examples_have_direct_adapter_links():
 
 
 def test_run_writer_waits_for_ui_reader(tmp_path, monkeypatch):
-    from fl_yue2.training import data as training_data
+    from fl_yue2.yue2.training import data as training_data
     path = tmp_path / "run.json"
     training_data.write_run(path, {"step": 1})
     reading, release = Event(), Event()
@@ -341,7 +344,7 @@ def test_run_writer_waits_for_ui_reader(tmp_path, monkeypatch):
 
 
 def test_missing_run_read_does_not_create_directories(tmp_path):
-    from fl_yue2.training.data import read_run
+    from fl_yue2.yue2.training.data import read_run
     with pytest.raises(FileNotFoundError):
         read_run(tmp_path / "missing" / "run.json")
     assert not (tmp_path / "missing").exists()
@@ -354,7 +357,7 @@ def test_ar_regularizer_needs_tokens_only(tmp_path):
 
 
 def test_ar_loader_uses_paired_acoustic_metadata_and_rejects_nar(tmp_path, monkeypatch):
-    from fl_yue2.training import nodes as training_nodes
+    from fl_yue2.yue2.training import nodes as training_nodes
     monkeypatch.setattr(training_nodes, "lora_root", lambda: tmp_path)
     save_file({"tensor": torch.zeros(1)}, str(tmp_path / "ar.safetensors"), metadata={"branch": "ar", "acoustic_adapter": "paired.safetensors"})
     save_file({"tensor": torch.zeros(1)}, str(tmp_path / "nar.safetensors"), metadata={"branch": "nar"})
@@ -369,7 +372,7 @@ def test_ar_loader_uses_paired_acoustic_metadata_and_rejects_nar(tmp_path, monke
 
 
 def test_training_model_inputs_are_named_assets():
-    from fl_yue2.training.nodes import FL_YuE2_TrainingModels
+    from fl_yue2.yue2.training.nodes import FL_YuE2_TrainingModels
     schema = FL_YuE2_TrainingModels.INPUT_TYPES()
     assert set(schema["required"]) == {"tokenizer_head", "regularizer", "download_missing"}
     with pytest.raises(ValueError, match="Unknown"):
@@ -377,7 +380,7 @@ def test_training_model_inputs_are_named_assets():
 
 
 def test_overwrite_clears_only_saved_training_outputs(tmp_path):
-    from fl_yue2.training.trainer import clear_saved_outputs
+    from fl_yue2.yue2.training.trainer import clear_saved_outputs
     run, export = tmp_path / "run", tmp_path / "adapters"
     run.mkdir()
     export.mkdir()
@@ -395,7 +398,7 @@ def test_overwrite_clears_only_saved_training_outputs(tmp_path):
 
 
 def test_train_always_runs_but_saved_selection_can_be_cached():
-    from fl_yue2.training.nodes import FL_YuE2_LoRATrainer
+    from fl_yue2.yue2.training.nodes import FL_YuE2_LoRATrainer
     first = FL_YuE2_LoRATrainer.IS_CHANGED("train")
     second = FL_YuE2_LoRATrainer.IS_CHANGED("train")
     assert first != second
@@ -423,7 +426,7 @@ def test_caption_uses_node_key(monkeypatch, tmp_path):
 
 def test_caption_worker_transmits_key_without_saving_it(monkeypatch, tmp_path):
     import io
-    from fl_yue2.training import service
+    from fl_yue2.yue2.training import service
     writes, calls = [], []
     process = SimpleNamespace(
         stdin=SimpleNamespace(write=writes.append, close=lambda: None),
@@ -446,7 +449,7 @@ def test_caption_worker_transmits_key_without_saving_it(monkeypatch, tmp_path):
 
 
 def test_caption_node_passes_key_separately(monkeypatch, tmp_path):
-    from fl_yue2.training import nodes
+    from fl_yue2.yue2.training import nodes
     captured = []
     def run(request, node_id=None, **kwargs):
         captured.append((request, kwargs))
@@ -458,3 +461,14 @@ def test_caption_node_passes_key_separately(monkeypatch, tmp_path):
     assert "api_key" not in captured[0][0]
     with pytest.raises(ValueError, match="Enter a Google API key"):
         node.caption(str(tmp_path), "test", "both", False, "", api_key="")
+
+
+def test_relocated_worker_imports_without_server_or_api_call(tmp_path):
+    worker = Path(__file__).resolve().parents[1] / "yue2" / "training" / "worker.py"
+    job = tmp_path / "caption.json"
+    write_json(job, {"operation": "caption", "directory": str(tmp_path), "task": "both", "concurrent_requests": 0})
+    result = subprocess.run([sys.executable, str(worker), str(job)], cwd=tmp_path,
+                            input='"test-key"\n', text=True, capture_output=True, timeout=30)
+    assert result.returncode == 1
+    assert "concurrent_requests must be between 1 and 8" in result.stdout
+    assert "ModuleNotFoundError" not in result.stderr

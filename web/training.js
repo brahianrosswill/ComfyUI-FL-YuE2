@@ -98,7 +98,7 @@ class TrainingPanel {
         const caption = this.caption;
         this.root = element("div"); this.root.className = "yue2-training";
         element("h3", this.root, caption ? "Music captions & lyrics" : "YuE2 training studio");
-        this.status = element("div", this.root, caption ? "Queue to send selected recordings to Google. GEMINI_API_KEY stays on the server." : "Queue to begin. Saved checkpoints remain available after interruption.");
+        this.status = element("div", this.root, caption ? "Enter a Google API key above, then queue to send selected recordings to Google." : "Queue to begin. Saved checkpoints remain available after interruption.");
         this.progress = element("progress", this.root); this.progress.max = 1; this.progress.value = 0;
         this.stats = element("small", this.root);
         if (!caption) { this.chart = element("canvas", this.root); this.chart.width = 900; this.chart.height = 220; }

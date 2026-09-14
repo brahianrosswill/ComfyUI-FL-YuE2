@@ -1,3 +1,7 @@
+# Version 0.2.3
+
+Version 0.2.3 repository cleanup: moved the Python implementation into `yue2/`, preserving node identifiers, web routes, model paths, and saved-run locations. All 99 existing tests pass, plus a new isolated-worker startup regression test. The restarted isolated ComfyUI server registers all 12 nodes; score validation and saved-run retrieval return HTTP 200. A fresh GPU inference through the relocated package produced 8 seconds of finite, non-silent stereo audio at 48 kHz. README images are actual browser captures of existing inference and training workflows, including a generation capped at 180 seconds and the saved 500-step AR run with checkpoint previews.
+
 # Version 0.2.0
 
 The release adds AR LoRA training, checkpoint previews during training, tooltips, and partial-score continuation. See [training validation](TRAINING_VALIDATION.md). Historical inference/editor checks follow.

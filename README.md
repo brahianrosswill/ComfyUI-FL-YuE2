@@ -1,6 +1,8 @@
 # FL YuE2 for ComfyUI
 
-![FL YuE2 inference and AR LoRA training pipelines](assets/workflow.svg)
+![YuE2 inference workflow in ComfyUI](assets/inference-workflow.png)
+
+![YuE2 AR LoRA training workflow in ComfyUI](assets/training-workflow.png)
 
 [![YuE2](https://img.shields.io/badge/YuE2-Original%20Repo-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/multimodal-art-projection/YuE)
 [![Patreon](https://img.shields.io/badge/Patreon-Support%20Me-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Machinedelusions)
@@ -34,7 +36,7 @@ Downloads resume after an interrupted transfer and verify the weight manifest. N
 
 ## Start a song
 
-Drag the included [score editor workflow](example_workflows/score_editor_to_song.json) onto ComfyUI. It connects **Piano Roll → Compose → Render Music → Decode Audio → Preview/Save**, with a shared model loader. The eight-bar instrumental score is editable, lyrics are blank, planning is `full`, and rendering has a 45-second upper limit. Files go under `output/audio/YuE2/`. The overview above illustrates inference and training; it is not a browser screenshot.
+Drag the included [score editor workflow](example_workflows/score_editor_to_song.json) onto ComfyUI. It connects **Piano Roll → Compose → Render Music → Decode Audio → Preview/Save**, with a shared model loader. The eight-bar instrumental score is editable, lyrics are blank, planning is `full`, and rendering has a 45-second upper limit. Files go under `output/audio/YuE2/`. The screenshots above show real ComfyUI workflows. The training screenshot displays an existing saved AR run.
 
 1. **Load Models** provides the music model and separate audio decoder.
 2. **Compose** accepts musical style, lyrics, planning mode, and seed. Describe genre, instruments, language, vocal character, mood, and tempo. Use `[Verse]` and `[Chorus]` lyric sections separated by blank lines.
@@ -52,6 +54,8 @@ The output is a stereo mix. Use an existing audio-separation node for stems. Edi
 For instrumental prompts, leave lyrics blank and describe the instrumentation in style. `full` generates melody and chords; `melody` generates a melody score. Only `off` skips planning. A supplied ABC score bypasses score generation and retains the selected `full` or `melody` instruction. Blank lyrics never override your planning choice.
 
 ## Score editor
+
+![YuE2 piano roll with an editable score](assets/piano-roll.png)
 
 Open `example_workflows/score_editor_to_song.json` for the eight-bar instrumental example. **Piano Roll** outputs a STRING connected to Compose's `score_abc` input; use `full` planning and blank lyrics for this example.
 
@@ -87,6 +91,8 @@ Interaction choices follow the navigation, drawing, preview and editing patterns
 
 ## Training
 
+![Saved AR training loss and checkpoint audio previews](assets/trainer-checkpoints.png)
+
 See [training guide](docs/TRAINING.md) for Gemini music captions, AR LoRA training, resume, and checkpoint playback. Training assets download into ComfyUI model folders when queued with download_missing enabled; Python training dependencies are installed separately.
 
 Use [Training Studio](example_workflows/training_studio.json) with your own recordings and reviewed captions. Install the optional training dependencies in ComfyUI's Python environment:
@@ -101,7 +107,7 @@ With previews enabled, each checkpoint renders a sample before training resumes.
 
 ## Development and validation
 
-Training implementation lives in `training/`, browser widgets in `web/`, and supporting documentation in `docs/`. Example graphs remain in `example_workflows/`.
+Python implementation lives in `yue2/`, including `yue2/training/`. The root `__init__.py` registers the nodes; browser widgets live in `web/` and supporting documentation in `docs/`. Example graphs remain in `example_workflows/`.
 
 From the ComfyUI root:
 

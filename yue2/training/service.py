@@ -36,7 +36,7 @@ def run_worker(request, node_id=None, client_id=None, *, api_key=""):
             mm.soft_empty_cache()
         try:
             process = subprocess.Popen([sys.executable, "-u", str(Path(__file__).with_name("worker.py")), str(job)],
-                                       cwd=str(Path(__file__).resolve().parents[3]), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       cwd=str(Path(__file__).resolve().parents[4]), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                        stdin=subprocess.PIPE if request["operation"] == "caption" else subprocess.DEVNULL,
                                        text=True, encoding="utf-8", errors="replace", creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
             if request["operation"] == "caption":

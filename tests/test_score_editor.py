@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from fl_yue2.abc_score import AbcError
-from fl_yue2.score_editor import DEFAULT_SCORE, FL_YuE2_ScoreEditor, inspect_score, validate_score, build_score
+from fl_yue2.yue2.abc_score import AbcError
+from fl_yue2.yue2.score_editor import DEFAULT_SCORE, FL_YuE2_ScoreEditor, inspect_score, validate_score, build_score
 
 
 def test_default_instrumental_and_node_output():

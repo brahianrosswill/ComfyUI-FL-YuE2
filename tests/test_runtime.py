@@ -1,10 +1,10 @@
 import torch
 import pytest
 
-from fl_yue2.model import attention
-from fl_yue2.downloads import contained, resolve
-from fl_yue2.protocol import token_prefixes, negative_prefix, GenerationConfig, ABC_END, MUSIC_START
-from fl_yue2 import runtime
+from fl_yue2.yue2.model import attention
+from fl_yue2.yue2.downloads import contained, resolve
+from fl_yue2.yue2.protocol import token_prefixes, negative_prefix, GenerationConfig, ABC_END, MUSIC_START
+from fl_yue2.yue2 import runtime
 
 
 @pytest.mark.parametrize("causal", [False, True])

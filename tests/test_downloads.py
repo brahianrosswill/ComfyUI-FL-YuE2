@@ -3,7 +3,7 @@ import io
 import json
 
 import pytest
-from fl_yue2 import downloads
+from fl_yue2.yue2 import downloads
 
 
 def installation(root):
@@ -73,7 +73,7 @@ def test_complete_external_install_wins_over_partial(monkeypatch, tmp_path):
 
 
 def test_training_asset_download_verify_and_offline_reuse(monkeypatch, tmp_path):
-    from fl_yue2.training import downloads as training_downloads
+    from fl_yue2.yue2.training import downloads as training_downloads
     data = b"training weights"
     monkeypatch.setattr(training_downloads, "ASSETS", {"head.pt": ("https://example.invalid/head.pt", hashlib.sha256(data).hexdigest())})
     monkeypatch.setattr(downloads.folder_paths, "get_folder_paths", lambda _: [str(tmp_path)])

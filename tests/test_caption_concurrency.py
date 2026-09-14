@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from fl_yue2.training import captioning
-from fl_yue2.training.data import read_json
+from fl_yue2.yue2.training import captioning
+from fl_yue2.yue2.training.data import read_json
 
 
 def request_for(root, concurrency):

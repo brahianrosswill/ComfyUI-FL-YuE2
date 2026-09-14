@@ -16,7 +16,7 @@ def main():
     if request["operation"] == "caption":
         request["api_key"] = json.loads(sys.stdin.readline())
     root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(root.parents[1]))
+    sys.path.insert(0, str(root.parents[2]))
     package = types.ModuleType("fl_yue2_worker")
     package.__path__ = [str(root)]
     sys.modules[package.__name__] = package
