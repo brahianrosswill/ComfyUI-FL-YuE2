@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-fl-yue2"
-version = "0.2.1"
+version = "0.2.2"
 description = "YuE2 music generation, piano roll editing, and AR LoRA training for ComfyUI"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}

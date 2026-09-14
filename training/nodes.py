@@ -64,16 +64,21 @@ class FL_YuE2_GeminiMusicCaptioner:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {"audio_directory": ("STRING", {"default": "", "tooltip": "Audio folder, relative to ComfyUI/input or an absolute folder. Recordings are sent to Google for captioning."}),
-                             "model": (["gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-2.5-pro"], {"tooltip": "Gemini model that listens to each recording. Requires GEMINI_API_KEY on the server; API usage may incur charges."}),
+                             "model": (["gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-2.5-pro"], {"tooltip": "Gemini model that listens to each recording. Uses the Google API key entered on this node; API usage may incur charges."}),
                              "task": (["both", "style", "lyrics"], {"tooltip": "Generate style descriptions, transcribe lyrics, or do both. Review the resulting text before training."}), "replace_existing": ("BOOLEAN", {"default": False, "tooltip": "Regenerate existing captions instead of reusing saved results."}),
-                             "instructions": ("STRING", {"multiline": True, "default": "", "tooltip": "Additional directions for Gemini, such as how to describe the genre or handle unclear vocals."})}, "hidden": {"unique_id": "UNIQUE_ID"}}
+                             "instructions": ("STRING", {"multiline": True, "default": "", "tooltip": "Additional directions for Gemini, such as how to describe the genre or handle unclear vocals."}),
+                             "api_key": ("STRING", {"default": "", "multiline": False, "dynamicPrompts": False, "tooltip": "Google Gemini API key for this run. Machine environment keys are not used. Clear this field before sharing a workflow; normal ComfyUI widgets are saved with the workflow."}),
+                             "concurrent_requests": ("INT", {"default": 3, "min": 1, "max": 8, "tooltip": "Recordings captioned at the same time. 1 is sequential. Reduce this if Google returns quota/rate-limit errors. Song excerpts stay in order within each recording."})}, "hidden": {"unique_id": "UNIQUE_ID"}}
 
-    def caption(self, audio_directory, model, task, replace_existing, instructions, unique_id=None):
+    def caption(self, audio_directory, model, task, replace_existing, instructions, unique_id=None, api_key="", concurrent_requests=3):
+        api_key = api_key.strip()
+        if not api_key:
+            raise ValueError("Enter a Google API key on the Gemini Music Captioner node")
         root = (Path(folder_paths.get_input_directory()) / audio_directory).resolve(strict=True)
         name = fingerprint(str(root))[:24]
         path = output_root() / "captions" / name / "manifest.json"
         result = run_worker({"operation": "caption", "directory": str(root), "model": model, "task": task,
-                             "replace_existing": replace_existing, "instructions": instructions, "output": str(path)}, unique_id)
+                             "replace_existing": replace_existing, "instructions": instructions, "concurrent_requests": concurrent_requests, "output": str(path)}, unique_id, api_key=api_key)
         return {"ui": {"captions": [name], "text": ["Review the generated sidecars before preparing the dataset."]}, "result": (result,)}
 
 

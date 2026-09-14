@@ -18,7 +18,7 @@ Downloads support partial-file resume and checksum verification. Existing valid 
 
 Dataset Maker and Gemini accept audio folders relative to ComfyUI's input directory, or explicitly supplied absolute audio folders. Preparation cache names are relative to `output/yue2_training`. No model-directory widgets are required.
 
-Each recording needs `.caption.txt` and `.lyrics.txt` sidecars; empty lyrics mean no intelligible vocals. Gemini requires `GEMINI_API_KEY` in the server environment and uploads the selected audio to Google. Review generated text before training. Incomplete transcriptions retry shorter intervals with overlapping context; unresolved intervals report their track and times.
+Each recording needs `.caption.txt` and `.lyrics.txt` sidecars; empty lyrics mean no intelligible vocals. Enter a Google API key in the Gemini Music Captioner node; machine environment keys are not used. The captioner uploads the selected audio to Google. The key is passed to the worker over stdin rather than written to job files. Normal ComfyUI widgets are saved in workflows/history, so clear the key before sharing them. Review generated text before training. Incomplete transcriptions retry shorter intervals with overlapping context; unresolved intervals report their track and times.
 
 Prepare Dataset extracts frozen MERT features and predicts semantic tokens with the selected head. English lyric alignment is optional; disable it and use cursor weight zero for uncertain or processed vocal samples. AR training uses the token regularizer pack, with no VAE-latent preparation or neighbor arrays.
 
@@ -35,3 +35,5 @@ With `render_previews` enabled, the trainer renders a sample at every `save_ever
 Start with [training_studio.json](../example_workflows/training_studio.json). For a two-step pipeline check, use [training_smoke.json](../example_workflows/training_smoke.json) with your own reviewed audio. The smoke preset explicitly truncates sequences and is not a quality-training preset.
 
 See `TRAINING_VALIDATION.md` for measured tests and quality limitations.
+
+The captioner runs up to `concurrent_requests` recordings at once (default 3, range 1-8). Set 1 for sequential operation or lower it if Google returns rate-limit errors. Excerpts within each song remain sequential. Completed songs are saved as they finish, with the manifest kept in filename order. Cancellation or a failed song stops new work; in-flight API requests may finish before cancellation takes effect.

@@ -400,3 +400,61 @@ def test_train_always_runs_but_saved_selection_can_be_cached():
     second = FL_YuE2_LoRATrainer.IS_CHANGED("train")
     assert first != second
     assert FL_YuE2_LoRATrainer.IS_CHANGED("use_saved") == FL_YuE2_LoRATrainer.IS_CHANGED("use_saved")
+
+
+def test_caption_requires_node_key_even_with_machine_credentials(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "machine-key")
+    monkeypatch.setenv("GOOGLE_API_KEY", "other-machine-key")
+    with pytest.raises(ValueError, match="on the Gemini Music Captioner node"):
+        caption({"api_key": "  "}, lambda _: None, lambda: None)
+
+
+def test_caption_uses_node_key(monkeypatch, tmp_path):
+    from google import genai
+    monkeypatch.setenv("GEMINI_API_KEY", "machine-key")
+    captured = []
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: captured.append(kwargs) or SimpleNamespace(close=lambda: None))
+    songs(tmp_path)
+    caption({"api_key": "  node-key  ", "directory": str(tmp_path), "task": "both",
+             "replace_existing": False, "output": str(tmp_path / "manifest.json")}, lambda _: None, lambda: None)
+    assert captured == [{"api_key": "node-key"}] * 3
+    assert "node-key" not in (tmp_path / "manifest.json").read_text()
+
+
+def test_caption_worker_transmits_key_without_saving_it(monkeypatch, tmp_path):
+    import io
+    from fl_yue2.training import service
+    writes, calls = [], []
+    process = SimpleNamespace(
+        stdin=SimpleNamespace(write=writes.append, close=lambda: None),
+        stdout=io.StringIO('YUE2_EVENT {"type":"complete","result":"manifest.json"}\n'),
+        returncode=0, wait=lambda **kwargs: 0, poll=lambda: 0,
+    )
+    def launch(*args, **kwargs):
+        calls.append((args, kwargs))
+        return process
+    monkeypatch.setattr(service, "output_root", lambda: tmp_path)
+    monkeypatch.setattr(service.subprocess, "Popen", launch)
+    monkeypatch.setattr(service.mm, "soft_empty_cache", lambda: None)
+    result = service.run_worker({"operation": "caption"}, api_key="node-secret")
+    assert result == "manifest.json"
+    assert json.loads(writes[0]) == "node-secret"
+    assert calls[0][1]["stdin"] == service.subprocess.PIPE
+    assert "node-secret" not in str(calls)
+    for path in (tmp_path / "jobs").iterdir():
+        assert "node-secret" not in path.read_text()
+
+
+def test_caption_node_passes_key_separately(monkeypatch, tmp_path):
+    from fl_yue2.training import nodes
+    captured = []
+    def run(request, node_id=None, **kwargs):
+        captured.append((request, kwargs))
+        return "manifest.json"
+    monkeypatch.setattr(nodes, "run_worker", run)
+    node = nodes.FL_YuE2_GeminiMusicCaptioner()
+    node.caption(str(tmp_path), "test", "both", False, "", api_key=" node-key ")
+    assert captured[0][1] == {"api_key": "node-key"}
+    assert "api_key" not in captured[0][0]
+    with pytest.raises(ValueError, match="Enter a Google API key"):
+        node.caption(str(tmp_path), "test", "both", False, "", api_key="")

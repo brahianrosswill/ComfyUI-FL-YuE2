@@ -19,7 +19,7 @@ def output_root():
     return Path(folder_paths.get_output_directory()) / "yue2_training"
 
 
-def run_worker(request, node_id=None, client_id=None):
+def run_worker(request, node_id=None, client_id=None, *, api_key=""):
     if client_id is None and hasattr(PromptServer, "instance"):
         client_id = PromptServer.instance.client_id
     jobs = output_root() / "jobs"
@@ -37,7 +37,11 @@ def run_worker(request, node_id=None, client_id=None):
         try:
             process = subprocess.Popen([sys.executable, "-u", str(Path(__file__).with_name("worker.py")), str(job)],
                                        cwd=str(Path(__file__).resolve().parents[3]), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       stdin=subprocess.PIPE if request["operation"] == "caption" else subprocess.DEVNULL,
                                        text=True, encoding="utf-8", errors="replace", creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+            if request["operation"] == "caption":
+                process.stdin.write(json.dumps(api_key) + "\n")
+                process.stdin.close()
             def read():
                 for line in process.stdout:
                     events.put(line)

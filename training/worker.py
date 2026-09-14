@@ -13,6 +13,8 @@ def main():
     request_path = Path(sys.argv[1])
     sys.argv = [sys.argv[0]]
     request = json.loads(request_path.read_text(encoding="utf-8"))
+    if request["operation"] == "caption":
+        request["api_key"] = json.loads(sys.stdin.readline())
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root.parents[1]))
     package = types.ModuleType("fl_yue2_worker")
