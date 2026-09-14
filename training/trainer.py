@@ -84,6 +84,15 @@ def cursor_targets(item, tokenizer, prefix, device):
     return 1 + len(before), 1 + len(full), target
 
 
+def clear_saved_outputs(run, export):
+    for path in export.glob("step-*.safetensors"):
+        path.unlink()
+    for path in run.glob("preview-*.flac"):
+        path.unlink()
+    for name in ("resume.pt", "resume.tmp"):
+        (run / name).unlink(missing_ok=True)
+
+
 def train(request, emit, cancelled):
     torch.use_deterministic_algorithms(True)
     cfg = request["config"]
@@ -115,16 +124,6 @@ def train(request, emit, cancelled):
     signature = fingerprint([prepared["fingerprint"], cfg, assets, asset_hashes])
     resume = request.get("resume", "")
     run_path = run / "run.json"
-    if run_path.exists() and not resume:
-        existing = read_run(run_path)
-        if existing["signature"] == signature and existing["status"] == "complete":
-            return str(run_path)
-        changed = [key for key in cfg if existing["config"].get(key) != cfg[key]]
-        if changed:
-            raise ValueError(f"Run '{run.name}' already exists with different settings ({', '.join(changed)}). Use a new output_name for this training configuration; use_saved selects its existing checkpoints.")
-        if existing["signature"] != signature:
-            raise ValueError(f"Run '{run.name}' was created with different data or model assets. Revert those changes to resume, or use a new output_name.")
-        raise ValueError(f"Run '{run.name}' already exists ({existing['status']}). Set resume to resume.pt to continue the same configuration, or use a new output_name.")
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -163,6 +162,8 @@ def train(request, emit, cancelled):
         record["metrics"] = [m for m in record["metrics"] if m["step"] <= start_step]
         record["checkpoints"] = [c for c in record["checkpoints"] if c["step"] <= start_step]
         record["status"] = "running"
+    else:
+        clear_saved_outputs(run, export)
     write_run(run_path, record)
     emit({"type": "status", "message": f"Training from step {start_step} of {cfg['steps']}"})
     elapsed = time.monotonic()

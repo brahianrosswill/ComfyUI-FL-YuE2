@@ -148,8 +148,8 @@ class FL_YuE2_LoRATrainer:
     def INPUT_TYPES(cls):
         return {"required": {
             "action": (["train", "use_saved"], {"tooltip": "Use saved selects/previews checkpoints without running preparation or training."}),
-            "output_name": ("STRING", {"default": "my_song_lora", "tooltip": "Run folder name inside output/yue2_training. Use a new name for a new training experiment."}),
-            "resume": ("STRING", {"default": "", "tooltip": "Resume checkpoint path relative to this run folder. Leave empty to start a new run."}),
+            "output_name": ("STRING", {"default": "my_song_lora", "tooltip": "Run folder inside output/yue2_training. Training with blank resume overwrites this run and its saved checkpoints/previews. Change the name to keep the old run."}),
+            "resume": ("STRING", {"default": "", "tooltip": "Resume checkpoint path relative to this run folder. Leave blank to train from scratch and overwrite existing results with this output name."}),
             "selected_step": ("INT", {"default": 0, "min": 0, "max": 100000, "tooltip": "0 selects the latest saved checkpoint."}),
             "render_previews": ("BOOLEAN", {"default": True, "tooltip": "Render a sample at each save_every checkpoint, then resume training. Releases training VRAM during inference; adds rendering and reload time. Also renders missing samples for saved runs."}),
             "preview_style": ("STRING", {"default": "instrumental piano", "multiline": True, "tooltip": "Style prompt used for every checkpoint sample. Include your dataset trigger for a useful comparison."}),
@@ -161,6 +161,10 @@ class FL_YuE2_LoRATrainer:
             "dataset": ("YUE2_PREPARED_DATASET", {"lazy": True}),
             "config": ("YUE2_TRAIN_CONFIG", {"lazy": True}),
         }, "hidden": {"unique_id": "UNIQUE_ID"}}
+
+    @classmethod
+    def IS_CHANGED(cls, action, **kwargs):
+        return float("nan") if action == "train" else "use_saved"
 
     def check_lazy_status(self, action, **kwargs):
         return [key for key in ("assets", "dataset", "config") if key in kwargs and kwargs[key] is None] if action == "train" else []

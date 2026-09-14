@@ -374,3 +374,29 @@ def test_training_model_inputs_are_named_assets():
     assert set(schema["required"]) == {"tokenizer_head", "regularizer", "download_missing"}
     with pytest.raises(ValueError, match="Unknown"):
         FL_YuE2_TrainingModels().load("../head.pt", "minted_regularizer_pack.pt")
+
+
+def test_overwrite_clears_only_saved_training_outputs(tmp_path):
+    from fl_yue2.training.trainer import clear_saved_outputs
+    run, export = tmp_path / "run", tmp_path / "adapters"
+    run.mkdir()
+    export.mkdir()
+    for name in ("preview-000050-old.flac", "resume.pt", "resume.tmp", "notes.txt"):
+        (run / name).write_bytes(b"old")
+    for name in ("step-000050.safetensors", "step-000100.safetensors", "notes.txt"):
+        (export / name).write_bytes(b"old")
+    other = tmp_path / "other_run"
+    other.mkdir()
+    (other / "resume.pt").write_bytes(b"keep")
+    clear_saved_outputs(run, export)
+    assert sorted(p.name for p in run.iterdir()) == ["notes.txt"]
+    assert sorted(p.name for p in export.iterdir()) == ["notes.txt"]
+    assert (other / "resume.pt").read_bytes() == b"keep"
+
+
+def test_train_always_runs_but_saved_selection_can_be_cached():
+    from fl_yue2.training.nodes import FL_YuE2_LoRATrainer
+    first = FL_YuE2_LoRATrainer.IS_CHANGED("train")
+    second = FL_YuE2_LoRATrainer.IS_CHANGED("train")
+    assert first != second
+    assert FL_YuE2_LoRATrainer.IS_CHANGED("use_saved") == FL_YuE2_LoRATrainer.IS_CHANGED("use_saved")

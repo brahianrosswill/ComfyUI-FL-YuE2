@@ -95,6 +95,8 @@ Use [Training Studio](example_workflows/training_studio.json) with your own reco
 python -m pip install -r requirements-training.txt
 ```
 
+Queuing `train` with blank `resume` starts fresh and overwrites the named run and its checkpoints/previews. Change the output name to keep an earlier run, or set `resume=resume.pt` to continue it.
+
 With previews enabled, each checkpoint renders a sample before training resumes. `Use` selects a saved checkpoint for inference without retraining.
 
 ## Development and validation

@@ -22,11 +22,11 @@ Each recording needs `.caption.txt` and `.lyrics.txt` sidecars; empty lyrics mea
 
 Prepare Dataset extracts frozen MERT features and predicts semantic tokens with the selected head. English lyric alignment is optional; disable it and use cursor weight zero for uncertain or processed vocal samples. AR training uses the token regularizer pack, with no VAE-latent preparation or neighbor arrays.
 
-Train Config exposes rank, learning rate, regularizer fraction, cursor weight, sequence budget, steps, checkpoint interval, cosine horizon, warmup, accumulation and seed. Use a fresh output name when changing the tokenizer, data or training settings. Existing saved AR runs remain available through `use_saved`; changing to v4 does not retokenize or retrain them automatically.
+Train Config exposes rank, learning rate, regularizer fraction, cursor weight, sequence budget, steps, checkpoint interval, cosine horizon, warmup, accumulation and seed. With `action=train` and blank `resume`, every queue starts fresh and overwrites the named run, including its old checkpoints and previews. Change `output_name` to keep an earlier experiment. Existing saved AR runs remain available through `use_saved`; changing to v4 does not retokenize or retrain them automatically.
 
 ## Checkpoints and playback
 
-Adapters are saved under `models/loras/YuE2/<run>/`; metrics, previews and complete optimizer/RNG resume state are under `output/yue2_training/<run>/`. Resume a matching run with `resume.pt`.
+Adapters are saved under `models/loras/YuE2/<run>/`; metrics, previews and complete optimizer/RNG resume state are under `output/yue2_training/<run>/`. Resume a matching run with `resume.pt`; explicit resume preserves existing results and still requires matching data, assets and training settings.
 
 With `render_previews` enabled, the trainer renders a sample at every `save_every` checkpoint before continuing training. Training releases GPU memory for inference, then resumes the saved optimizer and random state. Rendering and model reloads add time at each checkpoint; finished samples remain playable while training continues. After interruption, set `resume` to `resume.pt`. Disable previews for uninterrupted training.
 
