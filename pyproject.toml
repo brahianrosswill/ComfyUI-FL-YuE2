@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-fl-yue2"
-version = "0.1.0"
-description = "YuE2 music composition and generation nodes for ComfyUI"
+version = "0.2.0"
+description = "YuE2 music generation, piano roll editing, and AR LoRA training for ComfyUI"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = ["tiktoken>=0.12.0", "safetensors>=0.4.2", "filelock"]

@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="870" viewBox="0 0 1500 870" role="img" aria-labelledby="title description">
-<title id="title">FL YuE2 score editor workflow</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1570" viewBox="0 0 1500 1570" role="img" aria-labelledby="title description">
+<title id="title">FL YuE2 inference and AR LoRA training workflows</title>
 <desc id="description">Load Models supplies Compose, Render and Decode. Piano Roll supplies an editable ABC score to Compose, then Render Music and Decode Audio feed standard ComfyUI Preview Audio and Save Audio nodes.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>
-<rect width="1500" height="870" rx="18" fill="#141017"/>
+<rect width="1500" height="1570" rx="18" fill="#141017"/>
 <g font-family="Segoe UI,Arial,sans-serif" fill="#f5edf8">
-<text x="30" y="42" font-size="27" fill="#f5edf8">FL YuE2  /  Piano roll to music</text>
+<text x="30" y="42" font-size="27" fill="#f5edf8">FL YuE2  /  Inference + AR LoRA training</text>
 <text x="30" y="70" font-size="16" fill="#baa6c7">Editable ABC score • YuE2-3B • Standard ComfyUI audio outputs</text>
 <path d="M260 172 H280 V102 H875 V170 H900" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
 <path d="M260 205 H285 V650 H875 V418 H900" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)" opacity=".85"/>
@@ -176,5 +176,63 @@
 <text x="1216" y="753" font-size="13" fill="#f5edf8">FLAC • output/audio/YuE2/</text>
 <text x="310" y="700" font-size="19" fill="#f5edf8">One included workflow. Edit the score, describe the sound, then queue.</text>
 <text x="310" y="730" font-size="15" fill="#baa6c7">Music-model and VAE downloads start only when you queue Load Models.</text>
-<text x="30" y="848" font-size="13" fill="#baa6c7">Workflow overview generated from the exported ComfyUI graph. The piano grid shows its actual score notes.</text>
+<text x="30" y="848" font-size="13" fill="#baa6c7">INFERENCE  /  Optional piano roll, style and lyrics to 48 kHz stereo audio.</text>
+<path d="M30 890H1470" stroke="#49324e"/>
+<text x="30" y="935" font-size="27">Train your sound</text>
+<text x="30" y="964" font-size="16" fill="#baa6c7">Reviewed recordings to AR LoRA checkpoints, with playable samples during training</text>
+<path d="M310 1120H350" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M620 1120H660" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M960 1120H1000" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M310 1360H640V1160H660" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M960 1350H980V1290H1000" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="30" y="1010" width="280" height="230" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="30" y="1010" width="280" height="36" rx="8" fill="#16727c"/>
+<text x="44" y="1035" font-size="17">Gemini Music Captioner</text>
+<text x="44" y="1076" font-size="14" fill="#cdb9dd">Optional: listen and caption</text>
+<text x="44" y="1101" font-size="14" fill="#cdb9dd">Style descriptions + lyrics</text>
+<text x="44" y="1126" font-size="14" fill="#cdb9dd">Review and correct the text</text>
+<text x="44" y="1151" font-size="14" fill="#cdb9dd">Or supply existing sidecars</text>
+<text x="44" y="1176" font-size="14" fill="#cdb9dd">Audio is sent to Google</text>
+<rect x="350" y="1010" width="270" height="230" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="350" y="1010" width="270" height="36" rx="8" fill="#16727c"/>
+<text x="364" y="1035" font-size="17">Dataset Maker</text>
+<text x="364" y="1076" font-size="14" fill="#cdb9dd">Recordings + reviewed text</text>
+<text x="364" y="1101" font-size="14" fill="#cdb9dd">Trigger and validation split</text>
+<text x="364" y="1126" font-size="14" fill="#cdb9dd">Keep full songs together</text>
+<rect x="660" y="1010" width="300" height="230" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="660" y="1010" width="300" height="36" rx="8" fill="#16727c"/>
+<text x="674" y="1035" font-size="17">Prepare Dataset</text>
+<text x="674" y="1076" font-size="14" fill="#cdb9dd">MERT audio features</text>
+<text x="674" y="1101" font-size="14" fill="#cdb9dd">Tokenizer head to AR tokens</text>
+<text x="674" y="1126" font-size="14" fill="#cdb9dd">Cache prepared recordings</text>
+<text x="674" y="1151" font-size="14" fill="#cdb9dd">Optional lyric alignment</text>
+<rect x="1000" y="1010" width="440" height="300" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="1000" y="1010" width="440" height="36" rx="8" fill="#16727c"/>
+<text x="1014" y="1035" font-size="17">LoRA Trainer</text>
+<text x="1014" y="1076" font-size="14" fill="#cdb9dd">Train AR LoRA weights</text>
+<text x="1014" y="1101" font-size="14" fill="#cdb9dd">Mix recordings with regularizer</text>
+<text x="1014" y="1126" font-size="14" fill="#cdb9dd">Save at each checkpoint interval</text>
+<text x="1014" y="1151" font-size="14" fill="#cdb9dd">Release VRAM, render sample, resume</text>
+<rect x="1016" y="1185" width="408" height="50" rx="6" fill="#0f0f12"/><path d="M1026 1198l25 10 25 -8 25 13 25 -5 25 12 25 -8 25 10 25 -4 25 5 25 -2 25 4 45 -2" fill="none" stroke="#06b6d4" stroke-width="2"/>
+<text x="1018" y="1265" font-size="14" fill="#52cfb1">Play samples  /  Select checkpoint  /  Resume</text>
+<rect x="30" y="1290" width="280" height="170" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="30" y="1290" width="280" height="36" rx="8" fill="#16727c"/>
+<text x="44" y="1315" font-size="17">Training Models</text>
+<text x="44" y="1356" font-size="14" fill="#cdb9dd">Download missing files on queue</text>
+<text x="44" y="1381" font-size="14" fill="#cdb9dd">Base + MERT + tokenizer head</text>
+<text x="44" y="1406" font-size="14" fill="#cdb9dd">Regularizer + acoustic companion</text>
+<rect x="660" y="1275" width="300" height="160" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="660" y="1275" width="300" height="36" rx="8" fill="#16727c"/>
+<text x="674" y="1300" font-size="17">Train Config</text>
+<text x="674" y="1341" font-size="14" fill="#cdb9dd">Rank, learning rate, sequence size</text>
+<text x="674" y="1366" font-size="14" fill="#cdb9dd">Steps, save interval, accumulation</text>
+<text x="674" y="1391" font-size="14" fill="#cdb9dd">Preview interval = save interval</text>
+<path d="M1220 1310V1355" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="1000" y="1355" width="440" height="120" rx="10" fill="#35004c" stroke="#755083"/>
+<rect x="1000" y="1355" width="440" height="36" rx="8" fill="#16727c"/>
+<text x="1014" y="1380" font-size="17">Load LoRA &#8594; inference</text>
+<text x="1014" y="1421" font-size="14" fill="#cdb9dd">Selected AR checkpoint + strength</text>
+<text x="1014" y="1446" font-size="14" fill="#cdb9dd">Compose &#8594; Render &#8594; Decode &#8594; Audio</text>
+<path d="M500 1360V1255H980V1160H1000" fill="none" stroke="#52cfb1" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="30" y="1525" font-size="15" fill="#baa6c7">Models stay in ComfyUI model folders. Adapters save to models/loras/YuE2. MIDI import is not included.</text>
 </g></svg>

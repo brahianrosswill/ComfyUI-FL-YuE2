@@ -1,0 +1,6 @@
+-r requirements.txt
+google-genai>=2.19.0
+transformers>=4.57.1
+soundfile>=0.12.1
+scipy
+demucs==4.0.1

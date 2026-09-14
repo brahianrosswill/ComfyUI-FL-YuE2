@@ -14,6 +14,7 @@ from comfy.model_management import throw_exception_if_processing_interrupted
 MODELS = {
     "YuE2-3B": "1a96eca688d6ae5d7f0feb88573fec89920fcd19",
     "YuE2-Vae": "95535e72a97bc0f09b8ada125d26b4009428c0e8",
+    "MERT-v2-FullSong": "d8ba1c745e733b3908ce6ad16ebeb17ac7600a42",
 }
 COMMON_FILES = ("config.json", "weights_manifest.json", "LICENSE", "THIRD_PARTY_NOTICES.md",
                 "licenses/SnakeBeta-NVIDIA-MIT.txt", "licenses/stable-audio-tools-MIT.txt")
@@ -38,14 +39,18 @@ def contained(root, name):
 
 
 def transfer(name, revision, filename, target):
+    transfer_url(f"https://huggingface.co/m-a-p/{name}/resolve/{revision}/{filename}", target)
+
+
+def transfer_url(url, target):
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(target.name + ".partial")
     if partial.is_symlink():
         raise ValueError("YuE2 partial download must not be a symlink")
     offset = partial.stat().st_size if partial.exists() else 0
-    request = Request(f"https://huggingface.co/m-a-p/{name}/resolve/{revision}/{filename}",
+    request = Request(url,
                       headers={"Range": f"bytes={offset}-"} if offset else {})
-    logging.info("YuE2: downloading %s/%s", name, filename)
+    logging.info("YuE2: downloading %s", target.name)
     with urlopen(request, timeout=120) as response:
         resumed = offset > 0 and response.status == 206
         if resumed and not response.headers.get("Content-Range", "").startswith(f"bytes {offset}-"):
@@ -60,7 +65,7 @@ def transfer(name, revision, filename, target):
                 completed += len(block)
                 progress.update_absolute(completed, max(total, completed))
         if total and completed != total:
-            raise IOError(f"Incomplete YuE2 download: {filename}; queue again to resume")
+            raise IOError(f"Incomplete YuE2 download: {target.name}; queue again to resume")
     os.replace(partial, target)
 
 
@@ -71,6 +76,9 @@ def resolve(name, download=True):
     files = list(COMMON_FILES)
     if name == "YuE2-3B":
         files += ["qwen.tiktoken", "generation_config.json", "yue2_generation_config.json"]
+    elif name == "MERT-v2-FullSong":
+        files = ["config.json", "preprocessor_config.json", "configuration_mert2.py", "modeling_mert2.py",
+                 "weights_manifest.json", "LICENSE", "THIRD_PARTY_NOTICES.md"]
     roots = folder_paths.get_folder_paths("yue2")
     candidates = [contained(root, name) for root in roots]
     target = next((path for path in candidates if all(contained(path, file).is_file() for file in files + ["model.safetensors"])),
@@ -86,6 +94,8 @@ def resolve(name, download=True):
                     raise FileNotFoundError(f"Missing {path}; enable download_missing to complete installation")
                 transfer(name, revision, filename, path)
         manifest = json.loads((target / "weights_manifest.json").read_text())
+        if name == "MERT-v2-FullSong":
+            manifest = {"files": {manifest["filename"]: manifest}}
         if set(manifest["files"]) != {"model.safetensors"}:
             raise ValueError("Unexpected YuE2 weight manifest")
         weight = contained(target, "model.safetensors")

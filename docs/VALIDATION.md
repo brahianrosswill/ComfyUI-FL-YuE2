@@ -1,3 +1,7 @@
+# Version 0.2.0
+
+The release adds AR LoRA training, checkpoint previews during training, tooltips, and partial-score continuation. See [training validation](TRAINING_VALIDATION.md). Historical inference/editor checks follow.
+
 # Validation — 2026-09-10
 
 Tested on Windows, Python 3.12.6, Torch 2.11.0+cu130, Comfy Kitchen 0.2.31, RTX PRO 6000 Blackwell Max-Q (approximately 96 GB VRAM). The existing Python environment was preserved; no dependencies were installed or downgraded.

@@ -56,9 +56,6 @@
       "widgets_values": [
         true
       ],
-      "widgets_values_named": {
-        "download_missing": true
-      },
       "color": "#16727c",
       "bgcolor": "#4F0074"
     },
@@ -120,15 +117,6 @@
           "link": null
         },
         {
-          "localized_name": "max_score_tokens",
-          "name": "max_score_tokens",
-          "type": "INT",
-          "widget": {
-            "name": "max_score_tokens"
-          },
-          "link": null
-        },
-        {
           "localized_name": "score_abc",
           "name": "score_abc",
           "shape": 7,
@@ -166,20 +154,9 @@
         "full",
         831001,
         "fixed",
-        4096,
         "",
         ""
       ],
-      "widgets_values_named": {
-        "style": "Instrumental trip hop, boom bap, 88 BPM, Rhodes chords, thick drums, deep bass, flute melody, no singing, no spoken voice, no vocal samples",
-        "lyrics": "",
-        "planning": "full",
-        "seed": 831001,
-        "control_after_generate": "fixed",
-        "max_score_tokens": 4096,
-        "score_abc": "",
-        "yue2_result": ""
-      },
       "color": "#16727c",
       "bgcolor": "#4F0074"
     },
@@ -303,16 +280,6 @@
         1,
         ""
       ],
-      "widgets_values_named": {
-        "max_duration": 45,
-        "acoustic_steps": 32,
-        "temperature": 1,
-        "top_p": 0.95,
-        "top_k": 100,
-        "repetition_penalty": 1.2,
-        "guidance": 1,
-        "yue2_result": ""
-      },
       "color": "#16727c",
       "bgcolor": "#4F0074"
     },
@@ -371,9 +338,6 @@
       "widgets_values": [
         1024
       ],
-      "widgets_values_named": {
-        "tile_frames": 1024
-      },
       "color": "#16727c",
       "bgcolor": "#4F0074"
     },
@@ -419,8 +383,7 @@
       "properties": {
         "Node name for S&R": "PreviewAudio"
       },
-      "widgets_values": [],
-      "widgets_values_named": {}
+      "widgets_values": []
     },
     {
       "id": 6,
@@ -486,11 +449,7 @@
       "widgets_values": [
         "audio/YuE2/score_editor",
         "flac"
-      ],
-      "widgets_values_named": {
-        "filename_prefix": "audio/YuE2/score_editor",
-        "format": "flac"
-      }
+      ]
     },
     {
       "id": 7,
@@ -543,11 +502,6 @@
         "",
         ""
       ],
-      "widgets_values_named": {
-        "score_abc": "X:1\nT:\nM:4/4\nL:1/16\nQ:1/4=88\nV: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\nV: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\nK:Am\n% verse\nV: Vocal\n\"Am7\"z16|\"Dm7\"z16|\"G7\"z16|\"Cmaj7\"z16|\nV: Ins\n=E2=A2=c4=B2=A2=G4|=F2=A2=d4=c2=A2=F4|=G2=B2=d4=c2=B2=A4|=A2=c2=e4=d2=c2=A4|\n% outro\nV: Vocal\n\"Fmaj7\"z16|\"Dm7\"z16|\"E7\"z16|\"Am7\"z16|\nV: Ins\n=F2=A2=c4=A2=G2=F4|=D2=F2=A4=G2=F2=D4|=E2^G2=B4=A2^G2=E4|=A8z8|\n",
-        "source_score_hash": "",
-        "yue2_score_editor": ""
-      },
       "color": "#16727c",
       "bgcolor": "#4F0074"
     }
@@ -614,7 +568,7 @@
       7,
       0,
       2,
-      6,
+      5,
       "STRING"
     ]
   ],

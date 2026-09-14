@@ -35,13 +35,13 @@ class FL_YuE2_Plan:
             "style": ("STRING", {"multiline": True, "default": STYLE, "tooltip": "Describe language, genre, instruments, vocal character, mood and tempo."}),
             "lyrics": ("STRING", {"multiline": True, "default": LYRICS, "tooltip": "Words to sing, with [Verse], [Chorus], etc. Leave blank for instrumental music and describe it in style. Your planning choice still applies."}),
             "planning": (["full", "melody", "off"], {"default": "full", "tooltip": "full: melody + chords; melody: melody only; off: direct music generation."}),
-            "seed": ("INT", {"default": 831001, "min": 0, "max": 0x1FFFFFFFFFFFFF, "control_after_generate": True}),
-            "max_score_tokens": ("INT", {"default": 4096, "min": 128, "max": 12000, "step": 128, "tooltip": "Safety limit for the written score. Does not set audio duration."}),
+            "seed": ("INT", {"default": 831001, "min": 0, "max": 0x1FFFFFFFFFFFFF, "control_after_generate": True, "tooltip": "Random seed for composition and music generation. Keep fixed to compare prompts or LoRAs."}),
         }, "optional": {"score_abc": ("STRING", {"multiline": True, "default": "", "tooltip": "Optional YuE2-compatible ABC score. Leave empty to compose one. Requires full or melody planning."})}}
 
-    def plan(self, music_model, style, lyrics, planning, seed, max_score_tokens, score_abc=""):
-        result = runtime.make_plan(music_model, style, lyrics, seed, planning, score_abc, max_score_tokens)
-        return {"ui": {"text": [result.abc or "Direct generation — no symbolic score."]}, "result": (result, result.abc or "")}
+    def plan(self, music_model, style, lyrics, planning, seed, score_abc=""):
+        result = runtime.make_plan(music_model, style, lyrics, seed, planning, score_abc, 12000)
+        status = "Score limit reached; continuing with the partial score.\n" + result.abc if result.truncated else result.abc or "Direct generation - no symbolic score."
+        return {"ui": {"text": [status]}, "result": (result, result.abc or "")}
 
 
 class FL_YuE2_Render:
@@ -59,9 +59,9 @@ class FL_YuE2_Render:
             "acoustic_steps": ("INT", {"default": 32, "min": 1, "max": 64, "tooltip": "32 matches the released midpoint solver. Fewer steps are useful for quick tests."}),
         }, "optional": {
             "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 5.0, "step": 0.05, "tooltip": "Music-token sampling randomness. 0 uses greedy sampling."}),
-            "top_p": ("FLOAT", {"default": 0.95, "min": 0.01, "max": 1.0, "step": 0.01}),
-            "top_k": ("INT", {"default": 100, "min": 1, "max": 1000}),
-            "repetition_penalty": ("FLOAT", {"default": 1.2, "min": 0.1, "max": 3.0, "step": 0.01}),
+            "top_p": ("FLOAT", {"default": 0.95, "min": 0.01, "max": 1.0, "step": 0.01, "tooltip": "Sample from the most likely music tokens whose combined probability reaches this value. Lower values narrow the choices."}),
+            "top_k": ("INT", {"default": 100, "min": 1, "max": 1000, "tooltip": "Limit sampling to this many likely music tokens. Lower values reduce variation."}),
+            "repetition_penalty": ("FLOAT", {"default": 1.2, "min": 0.1, "max": 3.0, "step": 0.01, "tooltip": "Penalty for repeated music tokens. 1 disables the penalty; higher values discourage repetition."}),
             "guidance": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 20.0, "step": 0.01, "tooltip": "1.0 is the default for score-conditioned music. Direct mode's upstream default is 1.01. Values other than 1 use two generation branches."}),
         }}
 

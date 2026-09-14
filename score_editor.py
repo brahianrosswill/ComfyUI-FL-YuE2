@@ -186,7 +186,7 @@ class FL_YuE2_ScoreEditor:
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": {"score_abc": ("STRING", {"default": DEFAULT_SCORE, "multiline": True})},
+        return {"required": {"score_abc": ("STRING", {"default": DEFAULT_SCORE, "multiline": True, "tooltip": "YuE2-compatible ABC notation edited by the piano roll. Connect the score output to Compose with full or melody planning."})},
                 "optional": {"incoming_score_abc": ("STRING", {"forceInput": True, "tooltip": "Load a generated score for editing. Edits persist until the upstream score changes."}),
                              "source_score_hash": ("STRING", {"default": ""})}}
 

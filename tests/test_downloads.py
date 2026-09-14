@@ -70,3 +70,39 @@ def test_complete_external_install_wins_over_partial(monkeypatch, tmp_path):
     complete = installation(second)
     monkeypatch.setattr(downloads.folder_paths, "get_folder_paths", lambda _: [str(first), str(second)])
     assert downloads.resolve("YuE2-Vae", False) == complete
+
+
+def test_training_asset_download_verify_and_offline_reuse(monkeypatch, tmp_path):
+    from fl_yue2.training import downloads as training_downloads
+    data = b"training weights"
+    monkeypatch.setattr(training_downloads, "ASSETS", {"head.pt": ("https://example.invalid/head.pt", hashlib.sha256(data).hexdigest())})
+    monkeypatch.setattr(downloads.folder_paths, "get_folder_paths", lambda _: [str(tmp_path)])
+    calls = []
+    def transfer(url, target):
+        calls.append(url)
+        target.write_bytes(data)
+    monkeypatch.setattr(training_downloads, "transfer_url", transfer)
+    with pytest.raises(FileNotFoundError, match="download_missing"):
+        training_downloads.asset("head.pt", False)
+    target = training_downloads.asset("head.pt")
+    assert target == tmp_path / "training_assets/head.pt"
+    assert training_downloads.asset("head.pt", False) == target
+    assert len(calls) == 1
+    target.write_bytes(b"corrupt")
+    with pytest.raises(ValueError, match="Corrupt"):
+        training_downloads.asset("head.pt", False)
+    with pytest.raises(ValueError, match="Unknown"):
+        training_downloads.asset("../head.pt")
+
+
+def test_mert_manifest_normalization(monkeypatch, tmp_path):
+    target = tmp_path / "MERT-v2-FullSong"
+    target.mkdir()
+    for name in ("config.json", "preprocessor_config.json", "configuration_mert2.py", "modeling_mert2.py", "LICENSE", "THIRD_PARTY_NOTICES.md"):
+        (target / name).write_text("")
+    weight = b"mert weights"
+    (target / "model.safetensors").write_bytes(weight)
+    (target / "weights_manifest.json").write_text(json.dumps({"filename": "model.safetensors", "bytes": len(weight), "sha256": hashlib.sha256(weight).hexdigest()}))
+    monkeypatch.setattr(downloads.folder_paths, "get_folder_paths", lambda _: [str(tmp_path)])
+    monkeypatch.setattr(downloads, "urlopen", lambda *a, **kw: pytest.fail("Offline MERT loaded from the network"))
+    assert downloads.resolve("MERT-v2-FullSong", False) == target

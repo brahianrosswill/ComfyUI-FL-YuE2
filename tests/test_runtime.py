@@ -3,7 +3,7 @@ import pytest
 
 from fl_yue2.model import attention
 from fl_yue2.downloads import contained, resolve
-from fl_yue2.protocol import token_prefixes, GenerationConfig
+from fl_yue2.protocol import token_prefixes, negative_prefix, GenerationConfig, ABC_END, MUSIC_START
 from fl_yue2 import runtime
 
 
@@ -76,15 +76,28 @@ def test_blank_lyrics_respect_planning(mode, lyrics, monkeypatch):
         assert len(calls) == 1
 
 
-def test_instrumental_score_limit_does_not_fall_back(monkeypatch):
+@pytest.mark.parametrize("mode", ["full", "melody"])
+@pytest.mark.parametrize("lyrics", ["", "[Verse]\nSing these words"])
+def test_score_limit_preserves_partial_plan(monkeypatch, mode, lyrics):
     class Tokenizer:
         def encode(self, text):
             return list(text.encode())
+        def decode(self, ids):
+            return bytes(ids).decode()
     music = runtime.MusicModel(None, Tokenizer(), GenerationConfig())
+    partial = "X:1\nK:C\nCDEF|G"
+    ids = music.tokenizer.encode(partial)
     monkeypatch.setattr(music, "prepare", lambda tokens: None)
-    monkeypatch.setattr(runtime, "generate_tokens", lambda *args, **kwargs: ([42], {}, True))
-    with pytest.raises(ValueError, match="score reached its token limit"):
-        runtime.make_plan(music, "instrumental", "", 42, "full", "", 128)
+    monkeypatch.setattr(runtime, "generate_tokens", lambda *args, **kwargs: (ids, {}, True))
+    plan = runtime.make_plan(music, "pop", lyrics, 42, mode, "", 128)
+    assert plan.truncated
+    assert plan.request.cot == mode
+    assert plan.request.style == "pop" and plan.request.lyrics == lyrics and plan.request.seed == 42
+    assert plan.abc == partial and plan.abc_ids == ids
+    assert plan.prefix == token_prefixes(plan.request, music.tokenizer, ids)
+    assert plan.prefix[-len(ids)-2:] == ids + [ABC_END, MUSIC_START]
+    negative = negative_prefix(plan.request, music.tokenizer, plan.abc_ids)
+    assert negative[-len(ids)-2:] == ids + [ABC_END, MUSIC_START]
 
 
 def test_interruption_propagates():

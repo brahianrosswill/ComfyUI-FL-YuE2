@@ -92,8 +92,8 @@ def make_plan(music, style, lyrics, seed, mode, abc, max_tokens):
     model = music.prepare(len(prefix) + max_tokens)
     ids, timing, truncated = generate_tokens(model, prefix, sampling, seed, "abc", cancelled=cancelled, on_token=token_progress(max_tokens))
     if truncated:
-        raise ValueError("The score reached its token limit. Increase max_score_tokens, simplify the composition, or try another seed. Select planning=off only if you want direct generation.")
-    return Plan(request, music.tokenizer.decode(ids), ids, token_prefixes(request, music.tokenizer, ids))
+        logging.warning("YuE2 score limit reached; continuing with the partial score.")
+    return Plan(request, music.tokenizer.decode(ids), ids, token_prefixes(request, music.tokenizer, ids), truncated=truncated)
 
 
 def render(music, plan, max_seconds, temperature, top_p, top_k, repetition_penalty, cfg_scale, steps):

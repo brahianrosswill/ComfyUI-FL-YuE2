@@ -1,12 +1,12 @@
 # FL YuE2 for ComfyUI
 
-![FL YuE2 workflow overview](assets/workflow.svg)
+![FL YuE2 inference and AR LoRA training pipelines](assets/workflow.svg)
 
 [![YuE2](https://img.shields.io/badge/YuE2-Original%20Repo-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/multimodal-art-projection/YuE)
 [![Patreon](https://img.shields.io/badge/Patreon-Support%20Me-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Machinedelusions)
 [![Comfy Registry](https://img.shields.io/badge/Comfy-Registry-16727c?style=for-the-badge)](https://registry.comfy.org/publishers/machinedelusions/nodes/comfyui-fl-yue2)
 
-Compose songs from lyrics and style, build or import an ABC score, and render 48 kHz stereo audio with YuE2-3B. Five nodes work with ComfyUI's standard audio preview, saving, and processing nodes.
+Compose songs from lyrics and style, build or import an ABC score, and render 48 kHz stereo audio with YuE2-3B. Generate music and train AR LoRAs with reviewed datasets and checkpoint previews. The nodes work with ComfyUI's standard audio preview, saving, and processing nodes.
 
 ## Install
 
@@ -34,7 +34,7 @@ Downloads resume after an interrupted transfer and verify the weight manifest. N
 
 ## Start a song
 
-Drag the included [score editor workflow](example_workflows/score_editor_to_song.json) onto ComfyUI. It connects **Piano Roll → Compose → Render Music → Decode Audio → Preview/Save**, with a shared model loader. The eight-bar instrumental score is editable, lyrics are blank, planning is `full`, and rendering has a 45-second upper limit. Files go under `output/audio/YuE2/`. The overview above illustrates this workflow; it is not a browser screenshot.
+Drag the included [score editor workflow](example_workflows/score_editor_to_song.json) onto ComfyUI. It connects **Piano Roll → Compose → Render Music → Decode Audio → Preview/Save**, with a shared model loader. The eight-bar instrumental score is editable, lyrics are blank, planning is `full`, and rendering has a 45-second upper limit. Files go under `output/audio/YuE2/`. The overview above illustrates inference and training; it is not a browser screenshot.
 
 1. **Load Models** provides the music model and separate audio decoder.
 2. **Compose** accepts musical style, lyrics, planning mode, and seed. Describe genre, instruments, language, vocal character, mood, and tempo. Use `[Verse]` and `[Chorus]` lyric sections separated by blank lines.
@@ -79,13 +79,27 @@ Interaction choices follow the navigation, drawing, preview and editing patterns
 ## Troubleshooting
 
 - **Ending cut short:** increase `max_duration`. The node reports when the token limit is reached.
-- **Score token limit:** increase `max_score_tokens`, simplify the composition, or try another seed. This can also happen with instrumental prompts. Incomplete scores fail clearly; select `off` explicitly if you prefer direct generation.
+- **Score token limit:** Compose uses a fixed 12,000-token score budget. If the score does not finish, it closes the score token sequence and continues using the partial score in the selected planning mode. The node reports the cutoff; the final score phrase may be incomplete.
 - **Out of memory:** reduce duration or decoder tile size, close other GPU workloads, and retry. The pack uses ComfyUI model management and does not change global CUDA memory limits.
 - **Corrupt checkpoint:** remove only the file named in the error, enable downloads, and queue again. Partial transfers are retained for resumption.
 - **Node missing:** restart ComfyUI and inspect the startup import error. No other FL pack is required.
 - **Editor validation unavailable:** restart ComfyUI after installing this version, then refresh the browser. The editor uses the pack's local `/fl_yue2/score/validate` endpoint.
 
+## Training
+
+See [training guide](docs/TRAINING.md) for Gemini music captions, AR LoRA training, resume, and checkpoint playback. Training assets download into ComfyUI model folders when queued with download_missing enabled; Python training dependencies are installed separately.
+
+Use [Training Studio](example_workflows/training_studio.json) with your own recordings and reviewed captions. Install the optional training dependencies in ComfyUI's Python environment:
+
+```bash
+python -m pip install -r requirements-training.txt
+```
+
+With previews enabled, each checkpoint renders a sample before training resumes. `Use` selects a saved checkpoint for inference without retraining.
+
 ## Development and validation
+
+Training implementation lives in `training/`, browser widgets in `web/`, and supporting documentation in `docs/`. Example graphs remain in `example_workflows/`.
 
 From the ComfyUI root:
 
@@ -93,7 +107,7 @@ From the ComfyUI root:
 .\venv\Scripts\python.exe -m pytest custom_nodes/ComfyUI-FL-YuE2/tests --rootdir=. --import-mode=importlib -q
 ```
 
-See `VALIDATION.md` for the tested environment, generated results, and remaining limitations. The release contains one example workflow. Changing the version in `pyproject.toml` on `main` triggers registry publishing through `.github/workflows/publish.yml`; maintainers can also run it manually.
+See [validation notes](docs/VALIDATION.md) for the tested environment, generated results, and remaining limitations. Inference and training examples are in `example_workflows/`. Changing the version in `pyproject.toml` on `main` triggers registry publishing through `.github/workflows/publish.yml`; maintainers can also run it manually.
 
 ## Attribution and licenses
 

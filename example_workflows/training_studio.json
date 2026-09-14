@@ -1,0 +1,1178 @@
+{
+  "id": "857c7771-2cc7-4f41-86a1-9bb38a82f55c",
+  "revision": 0,
+  "last_node_id": 14,
+  "last_link_id": 14,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "FL_YuE2_TrainingModels",
+      "pos": [
+        650,
+        0
+      ],
+      "size": [
+        420,
+        178
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "tokenizer_head",
+          "name": "tokenizer_head",
+          "type": "COMBO",
+          "widget": {
+            "name": "tokenizer_head"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "regularizer",
+          "name": "regularizer",
+          "type": "COMBO",
+          "widget": {
+            "name": "regularizer"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "download_missing",
+          "name": "download_missing",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "download_missing"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_TRAINING_ASSETS",
+          "name": "YUE2_TRAINING_ASSETS",
+          "type": "YUE2_TRAINING_ASSETS",
+          "links": [
+            1,
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_TrainingModels"
+      },
+      "widgets_values": [
+        "tokenizer_head_joint_v4.pt",
+        "minted_regularizer_pack.pt",
+        true
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 2,
+      "type": "FL_YuE2_TrainConfig",
+      "pos": [
+        650,
+        420
+      ],
+      "size": [
+        420,
+        370
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "rank",
+          "name": "rank",
+          "type": "INT",
+          "widget": {
+            "name": "rank"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "learning_rate",
+          "name": "learning_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "learning_rate"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "generated_fraction",
+          "name": "generated_fraction",
+          "type": "FLOAT",
+          "widget": {
+            "name": "generated_fraction"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cursor_weight",
+          "name": "cursor_weight",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cursor_weight"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sequence_tokens",
+          "name": "sequence_tokens",
+          "type": "INT",
+          "widget": {
+            "name": "sequence_tokens"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "allow_truncation",
+          "name": "allow_truncation",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "allow_truncation"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_every",
+          "name": "save_every",
+          "type": "INT",
+          "widget": {
+            "name": "save_every"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "schedule_steps",
+          "name": "schedule_steps",
+          "type": "INT",
+          "widget": {
+            "name": "schedule_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "warmup_steps",
+          "name": "warmup_steps",
+          "type": "INT",
+          "widget": {
+            "name": "warmup_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "accumulation",
+          "name": "accumulation",
+          "type": "INT",
+          "widget": {
+            "name": "accumulation"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_TRAIN_CONFIG",
+          "name": "YUE2_TRAIN_CONFIG",
+          "type": "YUE2_TRAIN_CONFIG",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_TrainConfig"
+      },
+      "widgets_values": [
+        64,
+        0.0001,
+        0.5,
+        0,
+        12288,
+        false,
+        1600,
+        200,
+        3000,
+        50,
+        2,
+        42,
+        "fixed"
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 3,
+      "type": "FL_YuE2_DatasetMaker",
+      "pos": [
+        0,
+        900
+      ],
+      "size": [
+        420,
+        208
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "captions",
+          "name": "captions",
+          "shape": 7,
+          "type": "YUE2_CAPTIONS",
+          "link": null
+        },
+        {
+          "localized_name": "audio_directory",
+          "name": "audio_directory",
+          "type": "STRING",
+          "widget": {
+            "name": "audio_directory"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "trigger",
+          "name": "trigger",
+          "type": "STRING",
+          "widget": {
+            "name": "trigger"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "default_style",
+          "name": "default_style",
+          "type": "STRING",
+          "widget": {
+            "name": "default_style"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "validation_fraction",
+          "name": "validation_fraction",
+          "type": "FLOAT",
+          "widget": {
+            "name": "validation_fraction"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_DATASET",
+          "name": "YUE2_DATASET",
+          "type": "YUE2_DATASET",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_DatasetMaker"
+      },
+      "widgets_values": [
+        "my_music",
+        "",
+        "",
+        0.3,
+        42,
+        "fixed"
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 4,
+      "type": "FL_YuE2_PrepareDataset",
+      "pos": [
+        1300,
+        0
+      ],
+      "size": [
+        550,
+        760
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "dataset",
+          "name": "dataset",
+          "type": "YUE2_DATASET",
+          "link": 2
+        },
+        {
+          "localized_name": "assets",
+          "name": "assets",
+          "type": "YUE2_TRAINING_ASSETS",
+          "link": 1
+        },
+        {
+          "localized_name": "align_lyrics",
+          "name": "align_lyrics",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "align_lyrics"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cache_directory",
+          "name": "cache_directory",
+          "type": "STRING",
+          "widget": {
+            "name": "cache_directory"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_PREPARED_DATASET",
+          "name": "YUE2_PREPARED_DATASET",
+          "type": "YUE2_PREPARED_DATASET",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_PrepareDataset"
+      },
+      "widgets_values": [
+        false,
+        "prepared"
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 5,
+      "type": "FL_YuE2_LoRATrainer",
+      "pos": [
+        1950,
+        0
+      ],
+      "size": [
+        550,
+        970
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "assets",
+          "name": "assets",
+          "type": "YUE2_TRAINING_ASSETS",
+          "link": 3
+        },
+        {
+          "localized_name": "dataset",
+          "name": "dataset",
+          "type": "YUE2_PREPARED_DATASET",
+          "link": 4
+        },
+        {
+          "localized_name": "config",
+          "name": "config",
+          "type": "YUE2_TRAIN_CONFIG",
+          "link": 5
+        },
+        {
+          "localized_name": "output_name",
+          "name": "output_name",
+          "type": "STRING",
+          "widget": {
+            "name": "output_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resume",
+          "name": "resume",
+          "type": "STRING",
+          "widget": {
+            "name": "resume"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "adapter",
+          "type": "YUE2_ADAPTER",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_LoRATrainer"
+      },
+      "widgets_values": [
+        "train",
+        "my_song_lora",
+        "",
+        0,
+        true,
+        "instrumental acoustic guitar, warm folk",
+        "",
+        42,
+        30
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 7,
+      "type": "FL_YuE2_ModelLoader",
+      "pos": [
+        1950,
+        1170
+      ],
+      "size": [
+        420,
+        78
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "download_missing",
+          "name": "download_missing",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "download_missing"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "music_model",
+          "name": "music_model",
+          "type": "YUE2_MODEL",
+          "links": [
+            7
+          ]
+        },
+        {
+          "localized_name": "audio_decoder",
+          "name": "audio_decoder",
+          "type": "YUE2_VAE",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_ModelLoader"
+      },
+      "widgets_values": [
+        true
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 8,
+      "type": "FL_YuE2_LoadLoRA",
+      "pos": [
+        2300,
+        1170
+      ],
+      "size": [
+        420,
+        150
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "music_model",
+          "name": "music_model",
+          "type": "YUE2_MODEL",
+          "link": 7
+        },
+        {
+          "localized_name": "adapter",
+          "name": "adapter",
+          "shape": 7,
+          "type": "YUE2_ADAPTER",
+          "link": 8
+        },
+        {
+          "localized_name": "ar_adapter",
+          "name": "ar_adapter",
+          "type": "COMBO",
+          "widget": {
+            "name": "ar_adapter"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "ar_strength",
+          "name": "ar_strength",
+          "type": "FLOAT",
+          "widget": {
+            "name": "ar_strength"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_MODEL",
+          "name": "YUE2_MODEL",
+          "type": "YUE2_MODEL",
+          "links": [
+            9,
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_LoadLoRA"
+      },
+      "widgets_values": [
+        "none",
+        1
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 9,
+      "type": "FL_YuE2_Plan",
+      "pos": [
+        1950,
+        1550
+      ],
+      "size": [
+        420,
+        466
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "music_model",
+          "name": "music_model",
+          "type": "YUE2_MODEL",
+          "link": 9
+        },
+        {
+          "localized_name": "style",
+          "name": "style",
+          "type": "STRING",
+          "widget": {
+            "name": "style"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lyrics",
+          "name": "lyrics",
+          "type": "STRING",
+          "widget": {
+            "name": "lyrics"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "planning",
+          "name": "planning",
+          "type": "COMBO",
+          "widget": {
+            "name": "planning"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "score_abc",
+          "name": "score_abc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "score_abc"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "composition",
+          "name": "composition",
+          "type": "YUE2_PLAN",
+          "links": [
+            11
+          ]
+        },
+        {
+          "localized_name": "score_abc",
+          "name": "score_abc",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_Plan"
+      },
+      "widgets_values": [
+        "instrumental acoustic guitar, warm folk",
+        "",
+        "off",
+        42,
+        "fixed",
+        "",
+        ""
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 10,
+      "type": "FL_YuE2_Render",
+      "pos": [
+        2700,
+        1170
+      ],
+      "size": [
+        420,
+        281
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "music_model",
+          "name": "music_model",
+          "type": "YUE2_MODEL",
+          "link": 10
+        },
+        {
+          "localized_name": "composition",
+          "name": "composition",
+          "type": "YUE2_PLAN",
+          "link": 11
+        },
+        {
+          "localized_name": "max_duration",
+          "name": "max_duration",
+          "type": "INT",
+          "widget": {
+            "name": "max_duration"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "acoustic_steps",
+          "name": "acoustic_steps",
+          "type": "INT",
+          "widget": {
+            "name": "acoustic_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "temperature",
+          "name": "temperature",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "temperature"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "top_p",
+          "name": "top_p",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "top_p"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "top_k",
+          "name": "top_k",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "top_k"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "repetition_penalty",
+          "name": "repetition_penalty",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "repetition_penalty"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "guidance",
+          "name": "guidance",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "guidance"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "music_latents",
+          "name": "music_latents",
+          "type": "YUE2_LATENTS",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_Render"
+      },
+      "widgets_values": [
+        8,
+        32,
+        1,
+        0.95,
+        100,
+        1.2,
+        1.01,
+        ""
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 11,
+      "type": "FL_YuE2_Decode",
+      "pos": [
+        3100,
+        1170
+      ],
+      "size": [
+        420,
+        78
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "audio_decoder",
+          "name": "audio_decoder",
+          "type": "YUE2_VAE",
+          "link": 13
+        },
+        {
+          "localized_name": "music_latents",
+          "name": "music_latents",
+          "type": "YUE2_LATENTS",
+          "link": 12
+        },
+        {
+          "localized_name": "tile_frames",
+          "name": "tile_frames",
+          "type": "INT",
+          "widget": {
+            "name": "tile_frames"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_Decode"
+      },
+      "widgets_values": [
+        512
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 12,
+      "type": "PreviewAudio",
+      "pos": [
+        3100,
+        1410
+      ],
+      "size": [
+        420,
+        88
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 14
+        },
+        {
+          "localized_name": "audioUI",
+          "name": "audioUI",
+          "type": "AUDIO_UI",
+          "widget": {
+            "name": "audioUI"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewAudio"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 14,
+      "type": "MarkdownNote",
+      "pos": [
+        0,
+        1350
+      ],
+      "size": [
+        470,
+        520
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "## AR LoRA training\n\nPut recordings and reviewed .caption.txt / .lyrics.txt sidecars in ComfyUI/input/my_music, or choose your own audio folder. Empty lyrics mean instrumental.\n\nOptional Gemini: queue the captioner alone, review its text, then mute it before training. Requires GEMINI_API_KEY and sends audio to Google.\n\nTraining Models downloads missing assets when queued. Install requirements-training.txt first. Checkpoint previews render during training; use resume.pt to resume. See docs/TRAINING.md.\n\nUse a new output_name for each new experiment. Select a saved checkpoint with Use to skip training."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 13,
+      "type": "FL_YuE2_GeminiMusicCaptioner",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        550,
+        760
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 2,
+      "inputs": [
+        {
+          "localized_name": "audio_directory",
+          "name": "audio_directory",
+          "type": "STRING",
+          "widget": {
+            "name": "audio_directory"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "COMBO",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "task",
+          "name": "task",
+          "type": "COMBO",
+          "widget": {
+            "name": "task"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "replace_existing",
+          "name": "replace_existing",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "replace_existing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "instructions",
+          "name": "instructions",
+          "type": "STRING",
+          "widget": {
+            "name": "instructions"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_CAPTIONS",
+          "name": "YUE2_CAPTIONS",
+          "type": "YUE2_CAPTIONS",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_GeminiMusicCaptioner"
+      },
+      "widgets_values": [
+        "my_music",
+        "gemini-3.8-flash",
+        "both",
+        false,
+        "",
+        ""
+      ],
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      4,
+      1,
+      "YUE2_TRAINING_ASSETS"
+    ],
+    [
+      2,
+      3,
+      0,
+      4,
+      0,
+      "YUE2_DATASET"
+    ],
+    [
+      3,
+      1,
+      0,
+      5,
+      0,
+      "YUE2_TRAINING_ASSETS"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      1,
+      "YUE2_PREPARED_DATASET"
+    ],
+    [
+      5,
+      2,
+      0,
+      5,
+      2,
+      "YUE2_TRAIN_CONFIG"
+    ],
+    [
+      7,
+      7,
+      0,
+      8,
+      0,
+      "YUE2_MODEL"
+    ],
+    [
+      8,
+      5,
+      0,
+      8,
+      1,
+      "YUE2_ADAPTER"
+    ],
+    [
+      9,
+      8,
+      0,
+      9,
+      0,
+      "YUE2_MODEL"
+    ],
+    [
+      10,
+      8,
+      0,
+      10,
+      0,
+      "YUE2_MODEL"
+    ],
+    [
+      11,
+      9,
+      0,
+      10,
+      1,
+      "YUE2_PLAN"
+    ],
+    [
+      12,
+      10,
+      0,
+      11,
+      1,
+      "YUE2_LATENTS"
+    ],
+    [
+      13,
+      7,
+      1,
+      11,
+      0,
+      "YUE2_VAE"
+    ],
+    [
+      14,
+      11,
+      0,
+      12,
+      0,
+      "AUDIO"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1. Caption & review",
+      "bounding": [
+        -30,
+        -70,
+        610,
+        1350
+      ],
+      "color": "#16727c",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2. Prepare & configure",
+      "bounding": [
+        620,
+        -70,
+        1230,
+        1430
+      ],
+      "color": "#16727c",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3. Train & select",
+      "bounding": [
+        1920,
+        -70,
+        620,
+        1100
+      ],
+      "color": "#714995",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4. Load & listen",
+      "bounding": [
+        1920,
+        1105,
+        1600,
+        1150
+      ],
+      "color": "#16727c",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        -1880,
+        100
+      ]
+    }
+  },
+  "version": 0.4
+}
