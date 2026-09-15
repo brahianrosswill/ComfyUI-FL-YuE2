@@ -1,3 +1,11 @@
+# Caption acceptance and validation baselines
+
+Generated captions no longer require manual review. Validation previews now include a separate step-0 baseline and phase progress. The baseline uses the run's starting model and acoustic companion, and is not an exported AR checkpoint.
+
+Validation: 103 Python tests passed, including exact equality of resumed and uninterrupted two-step optimizer results, step-0 resume state before any update, caption acceptance, changed-audio rejection, baseline caching and changed preview settings. Browser DOM checks passed for baseline ordering/play controls, hidden baseline adapter selection, independent training/inference progress and cancellation cleanup. JavaScript syntax and diff whitespace checks passed.
+
+A full-size GPU smoke run remains pending because the main ComfyUI instance was actively training during verification. The active job was not interrupted or restarted.
+
 # Version 0.2.3
 
 Version 0.2.3 repository cleanup: moved the Python implementation into `yue2/`, preserving node identifiers, web routes, model paths, and saved-run locations. All 99 existing tests pass, plus a new isolated-worker startup regression test. The restarted isolated ComfyUI server registers all 12 nodes; score validation and saved-run retrieval return HTTP 200. A fresh GPU inference through the relocated package produced 8 seconds of finite, non-silent stereo audio at 48 kHz. README images are actual browser captures of existing inference and training workflows, including a generation capped at 180 seconds and the saved 500-step AR run with checkpoint previews.

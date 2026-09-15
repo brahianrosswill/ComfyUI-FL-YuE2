@@ -95,7 +95,7 @@ Interaction choices follow the navigation, drawing, preview and editing patterns
 
 See [training guide](docs/TRAINING.md) for Gemini music captions, AR LoRA training, resume, and checkpoint playback. Training assets download into ComfyUI model folders when queued with download_missing enabled; Python training dependencies are installed separately.
 
-Use [Training Studio](example_workflows/training_studio.json) with your own recordings and reviewed captions. Install the optional training dependencies in ComfyUI's Python environment:
+Use [Training Studio](example_workflows/training_studio.json) with your own recordings and captions. Install the optional training dependencies in ComfyUI's Python environment:
 
 ```bash
 python -m pip install -r requirements-training.txt
@@ -103,7 +103,7 @@ python -m pip install -r requirements-training.txt
 
 Queuing `train` with blank `resume` starts fresh and overwrites the named run and its checkpoints/previews. Change the output name to keep an earlier run, or set `resume=resume.pt` to continue it.
 
-With previews enabled, each checkpoint renders a sample before training resumes. `Use` selects a saved checkpoint for inference without retraining.
+Generated captions are accepted automatically and remain editable. With previews enabled, a step-0 baseline renders before training starts, followed by a sample at each checkpoint. A separate inference progress bar tracks sample generation before training resumes. `Use` selects a saved checkpoint for inference without retraining.
 
 ## Development and validation
 

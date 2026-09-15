@@ -67,6 +67,7 @@ async def get_preview(request):
         root = output_root() / name
         run = read_run(root / "run.json")
         allowed = {c.get("preview") for c in run["checkpoints"]}
+        allowed.add(run.get("baseline", {}).get("preview"))
         if filename not in allowed:
             raise ValueError("Preview is not part of this run")
         return web.FileResponse(contained(root, filename))

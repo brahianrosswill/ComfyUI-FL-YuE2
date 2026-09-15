@@ -84,6 +84,8 @@ class TrainingPanel {
             }
             if (value.type === "complete" || value.type === "error") this.activeOperation = null;
             if (value.type === "status" || value.type === "error") this.setStatus(value.message, value.type === "error" ? "error" : value.operation === "preview" ? "preview" : "running");
+            if (value.type === "preview_progress") this.updatePreview?.(value);
+            if ((value.type === "complete" || value.type === "error") && this.previewProgress) this.previewProgress.hidden = true;
             if (value.type === "progress") {
                 this.updateProgress(value);
                 if (value.loss != null) { this.metrics.push(value); this.draw(); }
@@ -102,7 +104,7 @@ class TrainingPanel {
         this.progress = element("progress", this.root); this.progress.max = 1; this.progress.value = 0;
         this.stats = element("small", this.root);
         if (!caption) { this.chart = element("canvas", this.root); this.chart.width = 900; this.chart.height = 220; }
-        this.refresh = element("button", this.root, caption ? "Load caption review" : "Refresh saved run");
+        this.refresh = element("button", this.root, caption ? "Load captions" : "Refresh saved run");
         this.refresh.onclick = () => this.load().catch(e => this.status.textContent = e.message);
         this.items = element("div", this.root);
     }
@@ -133,13 +135,13 @@ class TrainingPanel {
             this.items.replaceChildren();
             for (const song of data.songs) {
                 const card = element("article", this.items); element("b", card, song.name);
-                const state = element("small", card, song.reviewed ? "Reviewed" : "Draft — check lyrics before training");
+                const state = element("small", card, "Automatically accepted - editable");
                 const style = element("textarea", card); style.value = song.style; style.setAttribute("aria-label", "Style caption");
                 const lyrics = element("textarea", card); lyrics.value = song.lyrics; lyrics.style.minHeight = "170px"; lyrics.setAttribute("aria-label", "Full lyrics");
                 if (song.uncertainty) element("small", card, song.uncertainty).className = "warning";
-                const save = element("button", card, "Save reviewed text");
+                const save = element("button", card, "Save changes");
                 save.onclick = async () => {
-                    try { await json("/fl_yue2/captions/review", {identifier:id, name:song.name, style:style.value, lyrics:lyrics.value}); state.textContent = "Reviewed and saved"; }
+                    try { await json("/fl_yue2/captions/review", {identifier:id, name:song.name, style:style.value, lyrics:lyrics.value}); state.textContent = "Changes saved"; }
                     catch (e) { state.textContent = e.message; }
                 };
             }
@@ -188,8 +190,24 @@ class TrainerPanel extends TrainingPanel {
         const plot = section("chart-plot", chart); this.chart = section("chart-canvas", plot, "canvas");
         this.status = section("status", content, "div", "Ready to train"); this.status.setAttribute("role", "status");
         const preview = section("preview-section", content); section("preview-header", preview, "div", "Validation Samples");
+        this.previewProgress = element("div", preview); this.previewProgress.hidden = true;
+        this.previewLabel = element("div", this.previewProgress); this.previewLabel.style.fontSize = "10px";
+        this.previewBar = element("progress", this.previewProgress); this.previewBar.style.width = "100%"; this.previewBar.style.accentColor = "#06b6d4";
+        this.previewBar.max = 1; this.previewBar.setAttribute("aria-label", "Validation inference progress");
         this.items = section("preview-carousel", preview);
         section("preview-empty", this.items, "div", "Audio appears at each saved checkpoint when render_previews is enabled");
+        this.playbackLabel = element("div", preview, "Choose a sample to preview"); this.playbackLabel.style.fontSize = "10px";
+        this.seekBar = element("input", preview); this.seekBar.type = "range";
+        this.seekBar.min = "0"; this.seekBar.max = "0"; this.seekBar.step = "0.01"; this.seekBar.value = "0"; this.seekBar.disabled = true;
+        this.seekBar.style.cssText = "width:100%;margin:6px 0;accent-color:#06b6d4;cursor:pointer";
+        this.seekBar.setAttribute("aria-label", "Seek validation sample");
+        this.seekBar.onpointerdown = event => event.stopPropagation();
+        this.seekBar.onkeydown = event => event.stopPropagation();
+        this.seekBar.oninput = () => {
+            if (!this.activeAudio || this.seekBar.disabled) return;
+            this.activeAudio.currentTime = Math.min(Number(this.seekBar.value), this.activeAudio.duration);
+            this.updateSeek();
+        };
         this.resizeObserver = new ResizeObserver(() => this.draw()); this.resizeObserver.observe(plot);
     }
     setStatus(message, state = "idle") {
@@ -242,24 +260,46 @@ class TrainerPanel extends TrainingPanel {
             }
         }
     }
+    updatePreview(value) {
+        this.previewProgress.hidden = false;
+        const labels = {loading: "Loading models", tokens: "Generating music", synthesis: "Synthesizing audio", decode: "Decoding audio", saving: "Saving sample", complete: "Sample ready"};
+        const detail = value.total > 0 ? value.phase === "tokens" ? ` - ${(value.done / 25).toFixed(1)} / ${(value.total / 25).toFixed(1)}s maximum` : ` - ${value.done}/${value.total}` : "";
+        this.previewLabel.textContent = `${value.step === 0 ? "Baseline - Step 0" : `Step ${value.step}`} - ${labels[value.phase] || value.phase}${detail}`;
+        if (value.total > 0) this.previewBar.value = value.done / value.total;
+        else this.previewBar.removeAttribute("value");
+        this.setStatus(this.previewLabel.textContent, "preview");
+    }
+    updateSeek() {
+        const audio = this.activeAudio;
+        const duration = audio && Number.isFinite(audio.duration) ? audio.duration : 0;
+        const current = audio ? audio.currentTime : 0;
+        const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+        this.seekBar.disabled = duration <= 0;
+        this.seekBar.max = String(duration); this.seekBar.value = String(current);
+        this.playbackLabel.textContent = audio ? `${this.activeSample} - ${clock(current)} / ${duration > 0 ? clock(duration) : "Loading..."}` : "Choose a sample to preview";
+        this.seekBar.setAttribute("aria-valuetext", audio ? `${clock(current)} of ${clock(duration)}` : "No sample selected");
+    }
     showCheckpoints(run, name) {
+        const samples = [...(run.baseline ? [run.baseline] : []), ...run.checkpoints];
         const existing = new Map([...this.items.children].map(tile => [tile.dataset.step, tile]));
         for (const tile of existing.values()) {
-            const checkpoint = run.checkpoints.find(c => String(c.step) === tile.dataset.step);
+            const checkpoint = samples.find(c => String(c.step) === tile.dataset.step);
             if (tile.dataset.run !== name || !checkpoint || tile.dataset.preview !== (checkpoint.preview || "")) {
                 const audio = tile.querySelector("audio");
+                if (audio && audio === this.activeAudio) { this.activeAudio = null; this.updateSeek(); }
                 if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); }
                 tile.remove(); existing.delete(tile.dataset.step);
             }
         }
-        if (!run.checkpoints.length) { const empty = element("div",this.items,"Audio appears at each saved checkpoint when render_previews is enabled"); empty.className="yue2-trainer-preview-empty"; }
-        for (const checkpoint of run.checkpoints) {
+        if (!samples.length) { const empty = element("div",this.items,"Audio appears at each saved checkpoint when render_previews is enabled"); empty.className="yue2-trainer-preview-empty"; }
+        for (const checkpoint of samples) {
             if (existing.has(String(checkpoint.step))) continue;
             const tile = element("div",this.items); tile.className="yue2-trainer-preview-tile"; tile.dataset.step=checkpoint.step;
             tile.dataset.run=name; tile.dataset.preview=checkpoint.preview || "";
             const play = element("button",tile,"\u25b6"); play.className="yue2-trainer-play-btn"; play.setAttribute("aria-label",`Play checkpoint ${checkpoint.step}`);
-            const label = element("div",tile,`S${checkpoint.step}`); label.className="tile-label";
+            const label = element("div",tile,checkpoint.step === 0 ? "Baseline - Step 0" : `S${checkpoint.step}`); label.className="tile-label";
             const select = element("button",tile,"Use"); select.className="yue2-trainer-select";
+            select.hidden = checkpoint.step === 0;
             select.setAttribute("aria-label",`Use checkpoint ${checkpoint.step}`);
             select.onclick=()=>{
                 this.node.widgets.find(w=>w.name==="selected_step").value=checkpoint.step;
@@ -272,16 +312,20 @@ class TrainerPanel extends TrainingPanel {
             if (!checkpoint.preview) continue;
             const audio = element("audio",tile); audio.preload="none";
             audio.src=api.apiURL(`/fl_yue2/training/audio/${encodeURIComponent(name)}/${encodeURIComponent(checkpoint.preview)}`);
+            const syncSeek = () => { if (this.activeAudio === audio) this.updateSeek(); };
+            audio.ontimeupdate = syncSeek; audio.onloadedmetadata = syncSeek; audio.ondurationchange = syncSeek;
             const stopped=()=>{play.textContent="\u25b6";play.classList.remove("playing");play.setAttribute("aria-label",`Play checkpoint ${checkpoint.step}`);};
             audio.onpause=stopped;audio.onended=stopped;
             play.onclick=async()=>{
+                this.activeAudio = audio; this.activeSample = checkpoint.step === 0 ? "Baseline - Step 0" : `Step ${checkpoint.step}`;
+                this.updateSeek();
                 if (!audio.paused) {audio.pause();return;}
                 this.items.querySelectorAll("audio").forEach(other=>{if(other!==audio){other.pause();other.currentTime=0;}});
                 try {await audio.play();play.textContent="\u2161";play.classList.add("playing");play.setAttribute("aria-label",`Pause checkpoint ${checkpoint.step}`);}
                 catch(e){this.setStatus(`Cannot play checkpoint: ${e.message}`,"error");}
             };
         }
-        run.checkpoints.forEach((checkpoint, index) => {
+        samples.forEach((checkpoint, index) => {
             const tile = this.items.querySelector(`[data-step="${checkpoint.step}"]`);
             if (this.items.children[index] !== tile) this.items.insertBefore(tile, this.items.children[index] || null);
         });
@@ -290,7 +334,7 @@ class TrainerPanel extends TrainingPanel {
     markSelected() {
         const step=Number(this.node.widgets.find(w=>w.name==="selected_step").value) || Number(this.items.lastElementChild?.dataset.step);
         for(const tile of this.items.querySelectorAll("[data-step]")) {
-            const selected=Number(tile.dataset.step)===step;
+            const selected=Number(tile.dataset.step)>0 && Number(tile.dataset.step)===step;
             tile.classList.toggle("selected",selected);
             const button=tile.querySelector(".yue2-trainer-select");button.textContent=selected?"Selected":"Use";button.setAttribute("aria-pressed",String(selected));
         }

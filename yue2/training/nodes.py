@@ -156,7 +156,7 @@ class FL_YuE2_LoRATrainer:
             "output_name": ("STRING", {"default": "my_song_lora", "tooltip": "Run folder inside output/yue2_training. Training with blank resume overwrites this run and its saved checkpoints/previews. Change the name to keep the old run."}),
             "resume": ("STRING", {"default": "", "tooltip": "Resume checkpoint path relative to this run folder. Leave blank to train from scratch and overwrite existing results with this output name."}),
             "selected_step": ("INT", {"default": 0, "min": 0, "max": 100000, "tooltip": "0 selects the latest saved checkpoint."}),
-            "render_previews": ("BOOLEAN", {"default": True, "tooltip": "Render a sample at each save_every checkpoint, then resume training. Releases training VRAM during inference; adds rendering and reload time. Also renders missing samples for saved runs."}),
+            "render_previews": ("BOOLEAN", {"default": True, "tooltip": "Render a step-0 baseline and a sample at each save_every checkpoint, then resume training. Releases training VRAM during inference; adds rendering and reload time. Also renders missing samples for saved runs."}),
             "preview_style": ("STRING", {"default": "instrumental piano", "multiline": True, "tooltip": "Style prompt used for every checkpoint sample. Include your dataset trigger for a useful comparison."}),
             "preview_lyrics": ("STRING", {"default": "", "multiline": True, "tooltip": "Lyrics for checkpoint samples. Leave blank for instrumental previews."}),
             "preview_seed": ("INT", {"default": 42, "control_after_generate": False, "tooltip": "Fixed generation seed shared by checkpoint samples so differences are easier to compare."}),
@@ -185,6 +185,10 @@ class FL_YuE2_LoRATrainer:
                 raise ValueError("Connect training assets, prepared dataset, and config to train")
             if resume:
                 resume = str(contained(directory, Path(resume)))
+            if resume and render_previews and path.is_file():
+                baseline = read_run(path).get("baseline", {})
+                if baseline.get("preview_settings") != settings or not baseline.get("preview") or not contained(directory, baseline["preview"]).is_file():
+                    run_worker({"operation": "preview", "run": str(path), **settings}, unique_id)
             while True:
                 run_worker({"operation": "train", "assets": assets, "dataset": dataset, "config": config,
                             "run_directory": str(directory), "adapter_directory": str(lora_root() / name), "resume": resume,
@@ -208,7 +212,7 @@ class FL_YuE2_LoRATrainer:
             raise ValueError("No checkpoint at the selected step")
         chosen = candidates[0]
         if render_previews and any(c.get("preview_settings") != settings or not c.get("preview") or
-                                   not contained(directory, c["preview"]).is_file() for c in run["checkpoints"]):
+                                   not contained(directory, c["preview"]).is_file() for c in [run.get("baseline", {}), *run["checkpoints"]]):
             run_worker({"operation": "preview", "run": str(path), **settings}, unique_id)
         descriptor = {"ar": chosen["adapter"], "nar": run["assets"].get("initial_nar", "")}
         return {"ui": {"run": [name], "selected_step": [chosen["step"]]}, "result": (descriptor,)}

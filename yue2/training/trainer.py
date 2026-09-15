@@ -183,21 +183,28 @@ def train(request, emit, cancelled):
         return loss + (cfg["cursor_weight"] * auxiliary if auxiliary is not None else 0), {"ce": float(loss.detach()), "cursor": float(auxiliary.detach()) if auxiliary is not None else 0.0}
 
     def save(step):
-        path = export / f"step-{step:06d}.safetensors"
-        acoustic = Path(assets["initial_nar"]).relative_to(export.parent).as_posix() if assets.get("initial_nar") else ""
-        export_adapter(model, path, {"rank": cfg["rank"], "step": step, "base_revision": assets["model_revision"], "head_hash": prepared["head_hash"], "acoustic_adapter": acoustic})
-        checkpoint_info = {"step": step, "adapter": str(path), "branch": "ar"}
+        if step > 0:
+            path = export / f"step-{step:06d}.safetensors"
+            acoustic = Path(assets["initial_nar"]).relative_to(export.parent).as_posix() if assets.get("initial_nar") else ""
+            export_adapter(model, path, {"rank": cfg["rank"], "step": step, "base_revision": assets["model_revision"], "head_hash": prepared["head_hash"], "acoustic_adapter": acoustic})
+            checkpoint_info = {"step": step, "adapter": str(path), "branch": "ar"}
         saved = {"signature": signature, "step": step, "model": {n: p.detach().cpu() for n, p in named.items()},
                  "cursor": cursor.state_dict() if cursor is not None else None,
                  "optimizer": optimizer.state_dict(), "rng": rng_state()}
         temporary = run / "resume.tmp"
         torch.save(saved, temporary)
         os.replace(temporary, run / "resume.pt")
-        record["checkpoints"].append(checkpoint_info)
+        if step > 0:
+            record["checkpoints"].append(checkpoint_info)
         write_run(run_path, record)
-        emit({"type": "checkpoint", **checkpoint_info, "run": str(run_path)})
+        if step > 0:
+            emit({"type": "checkpoint", **checkpoint_info, "run": str(run_path)})
 
     try:
+        if not resume and request.get("pause_at_checkpoint"):
+            record["status"] = "preview"
+            save(0)
+            return str(run_path)
         for step in range(start_step + 1, cfg["steps"] + 1):
             cancelled()
             mult = min(1.0, step / max(1, cfg["warmup_steps"])) * (0.2 + 0.8 * 0.5 * (1 + math.cos(math.pi * min(step, cfg["schedule_steps"]) / cfg["schedule_steps"])))

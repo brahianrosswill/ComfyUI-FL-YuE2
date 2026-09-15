@@ -94,16 +94,16 @@ def dataset(directory, trigger, default_style, validation_fraction, seed, captio
         if not style:
             errors.append(f"{audio.name}: missing style caption")
             continue
+        sha = digest(audio)
         if metadata.is_file():
             meta = read_json(metadata)
-            if not meta.get("reviewed") or meta.get("reviewed_text") != fingerprint([style, text]):
-                errors.append(f"{audio.name}: review generated caption/lyrics in the captioner")
+            if meta.get("audio_sha256") and meta["audio_sha256"] != sha:
+                errors.append(f"{audio.name}: audio changed since captioning; regenerate captions")
                 continue
         info = sf.info(audio)
         if info.frames <= 0 or info.channels not in (1, 2):
             errors.append(f"{audio.name}: expected nonempty mono/stereo audio")
             continue
-        sha = digest(audio)
         if sha in hashes:
             errors.append(f"{audio.name}: duplicate recording")
             continue

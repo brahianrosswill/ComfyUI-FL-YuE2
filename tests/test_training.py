@@ -80,12 +80,10 @@ def songs(tmp_path):
         (tmp_path / f"song{index}.lyrics.txt").write_text("", encoding="utf-8")
 
 
-def test_dataset_requires_review_and_groups_song_split(tmp_path):
+def test_dataset_accepts_unreviewed_captions_and_groups_song_split(tmp_path):
     songs(tmp_path)
     write_json(tmp_path / "song0.caption.json", {"reviewed": False})
-    with pytest.raises(ValueError, match="review"):
-        dataset(tmp_path, "", "", 0.2, 42)
-    write_json(tmp_path / "song0.caption.json", {"reviewed": True, "reviewed_text": fingerprint(["piano", ""])})
+    dataset(tmp_path, "", "", 0.2, 42)
     for index in (0, 1):
         (tmp_path / f"song{index}.song.txt").write_text("same song")
     result = read_json(dataset(tmp_path, "my_style", "", 0.2, 42))
@@ -211,6 +209,7 @@ def saved_trainer_run(tmp_path, monkeypatch):
     run = {"mode": "ar", "status": "complete", "assets": {"initial_nar": "paired-nar.safetensors"}, "checkpoints": [
         {"step": 1, "adapter": "ar-one.safetensors", "branch": "ar", "preview": "one.flac", "preview_settings": settings},
         {"step": 2, "adapter": "ar-two.safetensors", "branch": "ar", "preview": "one.flac", "preview_settings": settings}]}
+    run["baseline"] = {"step": 0, "preview": "one.flac", "preview_settings": settings}
     write_json(root / "run.json", run)
     inputs = dict(action="use_saved", output_name="saved", resume="", selected_step=0, render_previews=True,
                   preview_style="piano", preview_lyrics="", preview_seed=42, preview_seconds=8)
@@ -472,3 +471,94 @@ def test_relocated_worker_imports_without_server_or_api_call(tmp_path):
     assert result.returncode == 1
     assert "concurrent_requests must be between 1 and 8" in result.stdout
     assert "ModuleNotFoundError" not in result.stderr
+
+
+def test_dataset_rejects_audio_changed_after_captioning(tmp_path):
+    songs(tmp_path)
+    write_json(tmp_path / "song0.caption.json", {"reviewed": False, "audio_sha256": "old"})
+    with pytest.raises(ValueError, match="audio changed"):
+        dataset(tmp_path, "", "", 0.2, 42)
+
+
+def test_baseline_is_separate_cached_and_uses_starting_model(tmp_path, monkeypatch):
+    from fl_yue2.yue2.training import preview as previews
+    model = SimpleNamespace(parameters=lambda: [])
+    music = SimpleNamespace(patcher=SimpleNamespace(model=model))
+    vae = SimpleNamespace(model=model)
+    monkeypatch.setattr(previews.runtime, "load_models", lambda *a, **kw: (music, vae))
+    patches, renders, events = [], [], []
+    monkeypatch.setattr(previews, "patch_music", lambda music, paths: patches.append(paths) or music)
+    monkeypatch.setattr(previews.runtime, "make_plan", lambda *args: args)
+    def render(*args, **kwargs):
+        renders.append(args)
+        kwargs["on_progress"]("tokens", 200, 200)
+        kwargs["on_progress"]("synthesis", 32, 32)
+        return None, True, None
+    monkeypatch.setattr(previews.runtime, "render", render)
+    monkeypatch.setattr(previews.runtime, "decode", lambda *a, **kw: {"waveform": torch.ones(1, 2, 480) * .1})
+    path = tmp_path / "run.json"
+    write_json(path, {"signature": "test", "assets": {"model": "base"}, "checkpoints": [{"step": 1, "adapter": "trained", "branch": "ar"}]})
+    request = {"run": str(path), "style": "piano", "lyrics": "", "seed": 42, "max_seconds": 8}
+    previews.preview(request, events.append, lambda: None)
+    record = read_json(path)
+    assert len(record["checkpoints"]) == 1
+    assert "adapter" not in record["baseline"]
+    assert patches == [["trained"]]
+    assert len(renders) == 2
+    assert {e["phase"] for e in events if e["type"] == "preview_progress"} >= {"loading", "tokens", "synthesis", "saving", "complete"}
+    assert (tmp_path / record["baseline"]["preview"]).is_file()
+    previews.preview(request, events.append, lambda: None)
+    assert len(renders) == 2
+    previews.preview({**request, "seed": 43}, events.append, lambda: None)
+    assert len(renders) == 4
+    assert read_json(path)["baseline"]["preview"] != record["baseline"]["preview"]
+
+
+def test_step_zero_resume_precedes_optimizer_updates(tmp_path, monkeypatch):
+    from fl_yue2.yue2.training import trainer
+    def load_model(_):
+        model = tiny_model()
+        for parameter in model.parameters():
+            parameter.requires_grad_(False)
+        return model
+    monkeypatch.setattr(trainer, "load_model", load_model)
+    monkeypatch.setattr(trainer, "YuE2TextTokenizer", lambda _: None)
+    monkeypatch.setattr(trainer, "token_prefixes", lambda *a: [1])
+    monkeypatch.setattr(trainer, "CODEC_OFFSET", 0)
+    monkeypatch.setattr(trainer, "MUSIC_END", 5)
+    monkeypatch.setattr(trainer, "check_dataset", lambda _: None)
+    monkeypatch.setattr(trainer, "regularizer", lambda _: [{"src": src, "style": "piano", "lyrics": "", "codec": np.array([2, 3])} for src in ("minted", "minted_val")])
+    head = tmp_path / "head.pt"
+    head.write_bytes(b"head")
+    tokens = tmp_path / "tokens.npy"
+    np.save(tokens, np.array([2, 3]))
+    prepared = tmp_path / "prepared.json"
+    write_json(prepared, {"fingerprint": "test", "head_hash": trainer.digest(head), "songs": [
+        {"name": split, "split": split, "tokens": str(tokens), "style": "piano", "lyrics": ""} for split in ("train", "validation")]})
+    config = dict(mode="ar", seed=42, rank=2, learning_rate=.001, cursor_weight=0, generated_fraction=.5,
+                  sequence_tokens=32, allow_truncation=False, steps=2, save_every=1, warmup_steps=1, schedule_steps=2, accumulation=1)
+    request = {"config": config, "assets": {"model": "base", "head": str(head), "regularizer": str(head), "model_revision": "test"},
+               "dataset": str(prepared), "run_directory": str(tmp_path / "run"), "adapter_directory": str(tmp_path / "adapters"), "pause_at_checkpoint": True}
+    events = []
+    path = trainer.train(request, events.append, lambda: None)
+    assert read_json(path)["step"] == 0
+    assert read_json(path)["checkpoints"] == []
+    assert read_json(path)["metrics"] == []
+    resume = tmp_path / "run" / "resume.pt"
+    state = torch.load(resume, weights_only=True)
+    assert state["step"] == 0 and not state["optimizer"]["state"]
+    assert not list((tmp_path / "adapters").glob("*.safetensors"))
+    request["resume"] = str(resume)
+    trainer.train(request, events.append, lambda: None)
+    assert read_json(path)["step"] == 1 and read_json(path)["status"] == "preview"
+    trainer.train(request, events.append, lambda: None)
+    record = read_json(path)
+    assert record["step"] == 2 and record["status"] == "complete"
+    assert [c["step"] for c in record["checkpoints"]] == [1, 2]
+
+    uninterrupted = {**request, "resume": "", "pause_at_checkpoint": False, "run_directory": str(tmp_path / "full"), "adapter_directory": str(tmp_path / "full_adapters")}
+    trainer.train(uninterrupted, events.append, lambda: None)
+    full = torch.load(tmp_path / "full" / "resume.pt", weights_only=True)
+    resumed = torch.load(resume, weights_only=True)
+    for name in full["model"]:
+        torch.testing.assert_close(full["model"][name], resumed["model"][name], rtol=0, atol=0)

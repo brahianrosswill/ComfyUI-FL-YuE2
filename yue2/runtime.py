@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import json
 import logging
+from pathlib import Path
 
 import torch
 from safetensors.torch import load_file
@@ -39,11 +40,11 @@ class MusicModel:
         return self.patcher.model
 
 
-def load_models(download_missing=True):
+def load_models(download_missing=True, model_directory=None):
     device = mm.get_torch_device()
     if device.type != "cuda" or not torch.cuda.is_bf16_supported():
         raise RuntimeError("FL YuE2 currently requires an NVIDIA GPU with BF16 support.")
-    paths = [resolve(name, download_missing) for name in ("YuE2-3B", "YuE2-Vae")]
+    paths = [Path(model_directory) if model_directory else resolve("YuE2-3B", download_missing), resolve("YuE2-Vae", download_missing)]
     config = json.loads((paths[0] / "config.json").read_text())
     with torch.device("meta"):
         model = YuE2Model(config)
@@ -69,7 +70,7 @@ def cancelled():
     return False
 
 
-def token_progress(total):
+def token_progress(total, on_progress=None):
     bar = ProgressBar(total)
     count = 0
 
@@ -77,6 +78,8 @@ def token_progress(total):
         nonlocal count
         count += 1
         bar.update_absolute(count)
+        if on_progress is not None:
+            on_progress("tokens", count, total)
     return update
 
 
@@ -96,7 +99,7 @@ def make_plan(music, style, lyrics, seed, mode, abc, max_tokens):
     return Plan(request, music.tokenizer.decode(ids), ids, token_prefixes(request, music.tokenizer, ids), truncated=truncated)
 
 
-def render(music, plan, max_seconds, temperature, top_p, top_k, repetition_penalty, cfg_scale, steps):
+def render(music, plan, max_seconds, temperature, top_p, top_k, repetition_penalty, cfg_scale, steps, *, on_progress=None, check_cancelled=cancelled):
     if token_prefixes(plan.request, music.tokenizer, plan.abc_ids) != plan.prefix:
         raise ValueError("YuE2 plan changed. Submit edited ABC through the Plan node.")
     max_tokens = round(max_seconds * 25)
@@ -107,24 +110,37 @@ def render(music, plan, max_seconds, temperature, top_p, top_k, repetition_penal
     model = music.prepare(len(plan.prefix) + max_tokens, 1 if cfg_scale == 1 else 2)
     ids, timing, truncated = generate_tokens(model, plan.prefix, sampling, plan.request.seed, "semantic",
                                             negative=negative, cfg_scale=cfg_scale, legacy_off=plan.request.cot == "off",
-                                            cancelled=cancelled, on_token=token_progress(max_tokens))
+                                            cancelled=check_cancelled, on_token=token_progress(max_tokens, on_progress))
     if not ids:
         raise ValueError("YuE2 produced no music tokens. Try a different seed or lyrics.")
     if truncated:
         logging.warning("YuE2 reached max_duration; increase it if the song ends early.")
     bar = ProgressBar(steps)
+    def progress(done, total):
+        bar.update_absolute(done, total)
+        if on_progress is not None:
+            on_progress("synthesis", done, total)
+    if on_progress is not None:
+        on_progress("synthesis", 0, steps)
     latent = synthesize(model, plan.prefix, [token - CODEC_OFFSET for token in ids], plan.request.seed,
-                        steps=steps, cancelled=cancelled, on_progress=bar.update_absolute)
+                        steps=steps, cancelled=check_cancelled, on_progress=progress)
     # The runtime owns YuE2's native [B,C,T] layout.
     return latent.T.unsqueeze(0).contiguous(), truncated, timing
 
 
-def decode(vae, latent, tile_frames):
+def decode(vae, latent, tile_frames, *, on_progress=None, check_cancelled=cancelled):
     if latent.ndim != 3 or latent.shape[1] != 64 or latent.shape[-1] == 0:
         raise ValueError("Expected YuE2 latents shaped [batch,64,frames]")
     mm.load_models_gpu([vae], memory_required=2 * 1024**3, force_full_load=True)
     bar = ProgressBar((latent.shape[-1] + tile_frames - 1) // tile_frames)
-    audio = vae.model.decode_tiled(latent, tile_frames, bar.update_absolute)
+    def progress(done, total):
+        check_cancelled()
+        bar.update_absolute(done, total)
+        if on_progress is not None:
+            on_progress("decode", done, total)
+    if on_progress is not None:
+        on_progress("decode", 0, bar.total)
+    audio = vae.model.decode_tiled(latent, tile_frames, progress)
     if not torch.isfinite(audio).all():
         raise ValueError("YuE2 produced non-finite audio")
     return {"waveform": audio.clamp_(-1, 1), "sample_rate": vae.model.sample_rate}
