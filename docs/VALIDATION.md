@@ -69,8 +69,8 @@ For the Score Editor update, browser-harness reached Chrome's “Allow remote de
 
 The piano-roll update had no available browser-harness connection. Live visual layout, pointer interaction in an actual browser, and audible Web Audio preview remain unverified; the DOM fixture tests do not replace these checks.
 
-Automatic approval review also blocked restarting the main ComfyUI session. The installed pack will appear there after a restart; generation was tested on the separate local port 8189 instance.
+The installed pack and its training nodes were loaded successfully in the main ComfyUI session on port 8188.
 
 Peak VRAM was not instrumented. The server's post-generation Torch allocation was approximately 7.0 GiB; this is retained model memory, not a peak-memory claim. A 24 GB configuration, other GPU vendors, and multi-user concurrent execution were not tested.
 
-Audio-to-score transcription with SheetSage2, quantization, CUDA graphs, and the legacy benchmark decoder are outside this release. Score-conditioned music generation is included.
+Pinned SheetSage2 audio-to-score transcription is included for joint-training dataset preparation. Quantization, CUDA graphs, and the legacy benchmark decoder remain outside this release. Score-conditioned music generation is included.

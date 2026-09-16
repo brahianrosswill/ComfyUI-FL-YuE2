@@ -18,9 +18,9 @@ from torch import nn
 from safetensors.torch import save_file, load_file
 
 from fl_yue2.yue2.model import YuE2Model, StaticKVCache
-from fl_yue2.yue2.training.math import hidden
+from fl_yue2.yue2.training.math import hidden, ar_joint_loss
 from fl_yue2.yue2.training.trainer import install_lora, export_adapter, rng_state, restore_rng
-from fl_yue2.yue2.training.data import dataset, read_json, write_json, fingerprint, run_name, regularizer, check_dataset
+from fl_yue2.yue2.training.data import dataset, read_json, write_json, run_name, regularizer, check_dataset
 from fl_yue2.yue2.training.captioning import caption, validate_response
 
 
@@ -63,6 +63,24 @@ def test_adapter_only_updates_and_export(tmp_path):
     assert all("lora_" in key for key in state)
 
 
+def test_joint_kl_anchors_adapter_and_only_trains_lora():
+    torch.manual_seed(7)
+    model = tiny_model()
+    model.requires_grad_(False)
+    install_lora(model, 2)
+    ids = torch.tensor([[1, 2, 3, 4, 5]])
+    _, initial = ar_joint_loss(model, ids, 2, 0.2, False)
+    assert initial.abs() < 1e-7
+    with torch.set_grad_enabled(False):
+        model.model.layers[0].self_attn.q_proj.B.normal_(0, .1)
+    ce, kl = ar_joint_loss(model, ids, 2, 0.2, False)
+    assert kl > 0
+    (ce + .2 * kl).backward()
+    projection = model.model.layers[0].self_attn.q_proj
+    assert projection.A.grad is not None and projection.B.grad is not None
+    assert projection.base.weight.grad is None
+
+
 def test_rng_resume_reproduces_draws():
     import random
     state = rng_state()
@@ -90,6 +108,17 @@ def test_dataset_accepts_unreviewed_captions_and_groups_song_split(tmp_path):
     assert result["songs"][0]["split"] == result["songs"][1]["split"]
     assert {s["split"] for s in result["songs"]} == {"train", "validation"}
     assert all(s["style"] == "my_style, piano" for s in result["songs"])
+
+
+def test_dataset_tracks_reviewed_abc_sidecars(tmp_path):
+    songs(tmp_path)
+    score = "X:1\nT:\nM:4/4\nL:1/32\nQ:1/4=90\nV: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\nV: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\nK:C\nV: Vocal\nZ|\nV: Ins\nZ|"
+    (tmp_path / "song0.abc.txt").write_text(score, encoding="utf-8")
+    result = read_json(dataset(tmp_path, "", "", .2, 42))
+    assert result["version"] == 2 and result["songs"][0]["abc"] == score
+    (tmp_path / "song0.abc.txt").write_text(score + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="sidecars changed"):
+        check_dataset(result)
 
 
 @pytest.mark.parametrize("name", ["../escape", "x/y", "x\\y", "", "C:foo", "a.b"])
@@ -202,7 +231,7 @@ def test_adapter_strength_and_original_patcher_isolation(tmp_path):
 def saved_trainer_run(tmp_path, monkeypatch):
     from fl_yue2.yue2.training import nodes as training_nodes
     monkeypatch.setattr(training_nodes, "output_root", lambda: tmp_path)
-    settings = {"style": "piano", "lyrics": "", "seed": 42, "max_seconds": 8}
+    settings = {"style": "piano", "lyrics": "", "seed": 42, "max_seconds": 8, "ar_strength": 1.0, "nar_strength": 1.0}
     root = tmp_path / "saved"
     root.mkdir()
     (root / "one.flac").write_bytes(b"preview fixture")
@@ -226,14 +255,15 @@ def test_saved_checkpoint_selection_does_not_run_workers(saved_trainer_run, monk
     assert node.train(**inputs)["result"][0] == {"ar": "ar-one.safetensors", "nar": "paired-nar.safetensors"}
 
 
-def test_changed_preview_only_runs_preview_worker(saved_trainer_run, monkeypatch):
+@pytest.mark.parametrize("widget, key, value", [("preview_seed", "seed", 99), ("preview_ar_strength", "ar_strength", 0.75), ("preview_nar_strength", "nar_strength", 0.5)])
+def test_changed_preview_only_runs_preview_worker(saved_trainer_run, monkeypatch, widget, key, value):
     nodes, inputs = saved_trainer_run
     calls = []
     monkeypatch.setattr(nodes, "run_worker", lambda request, node_id: calls.append(request))
-    inputs["preview_seed"] = 99
+    inputs[widget] = value
     nodes.FL_YuE2_LoRATrainer().train(**inputs)
     assert [c["operation"] for c in calls] == ["preview"]
-    assert calls[0]["seed"] == 99
+    assert calls[0][key] == value
 
 
 def test_training_outputs_selected_adapter(saved_trainer_run, monkeypatch):
@@ -361,10 +391,15 @@ def test_ar_loader_uses_paired_acoustic_metadata_and_rejects_nar(tmp_path, monke
     save_file({"tensor": torch.zeros(1)}, str(tmp_path / "ar.safetensors"), metadata={"branch": "ar", "acoustic_adapter": "paired.safetensors"})
     save_file({"tensor": torch.zeros(1)}, str(tmp_path / "nar.safetensors"), metadata={"branch": "nar"})
     calls = []
-    monkeypatch.setattr(training_nodes.adapters, "patch_music", lambda model, paths, strength: calls.append((paths, strength)))
+    monkeypatch.setattr(training_nodes.adapters, "patch_music", lambda model, paths, strength, nar_strength: calls.append((paths, strength, nar_strength)))
     node = training_nodes.FL_YuE2_LoadLoRA()
     node.load(None, "ar.safetensors", 0.75)
-    assert calls == [([str(tmp_path / "ar.safetensors"), str(tmp_path / "paired.safetensors")], 0.75)]
+    assert calls == [([str(tmp_path / "ar.safetensors"), str(tmp_path / "paired.safetensors")], 0.75, 1.0)]
+    for strength in (0.0, 0.4, 2.0):
+        node.load(None, "ar.safetensors", 0.75, nar_strength=strength)
+        assert calls[-1] == (calls[0][0], 0.75, strength)
+    node.load(None, "none", 0.5, {"ar": "ar.safetensors", "nar": "paired.safetensors"}, nar_strength=0.25)
+    assert calls[-1] == (calls[0][0], 0.5, 0.25)
     assert node.INPUT_TYPES()["required"]["ar_adapter"][0] == ["none", "ar.safetensors"]
     with pytest.raises(ValueError, match="AR LoRA"):
         node.load(None, "nar.safetensors", 1.0)
@@ -376,6 +411,12 @@ def test_training_model_inputs_are_named_assets():
     assert set(schema["required"]) == {"tokenizer_head", "regularizer", "download_missing"}
     with pytest.raises(ValueError, match="Unknown"):
         FL_YuE2_TrainingModels().load("../head.pt", "minted_regularizer_pack.pt")
+
+
+def test_prepare_dataset_keeps_existing_widgets_before_score_options():
+    from fl_yue2.yue2.training.nodes import FL_YuE2_PrepareDataset
+    assert list(FL_YuE2_PrepareDataset.INPUT_TYPES()["required"]) == [
+        "dataset", "assets", "align_lyrics", "cache_directory", "score_planning", "transcribe_missing_scores"]
 
 
 def test_overwrite_clears_only_saved_training_outputs(tmp_path):
@@ -480,14 +521,15 @@ def test_dataset_rejects_audio_changed_after_captioning(tmp_path):
         dataset(tmp_path, "", "", 0.2, 42)
 
 
-def test_baseline_is_separate_cached_and_uses_starting_model(tmp_path, monkeypatch):
+@pytest.mark.parametrize("acoustic", [False, True])
+def test_baseline_is_separate_cached_and_uses_starting_model(tmp_path, monkeypatch, acoustic):
     from fl_yue2.yue2.training import preview as previews
     model = SimpleNamespace(parameters=lambda: [])
     music = SimpleNamespace(patcher=SimpleNamespace(model=model))
     vae = SimpleNamespace(model=model)
     monkeypatch.setattr(previews.runtime, "load_models", lambda *a, **kw: (music, vae))
     patches, renders, events = [], [], []
-    monkeypatch.setattr(previews, "patch_music", lambda music, paths: patches.append(paths) or music)
+    monkeypatch.setattr(previews, "patch_music", lambda music, paths, ar, nar: patches.append((paths, ar, nar)) or music)
     monkeypatch.setattr(previews.runtime, "make_plan", lambda *args: args)
     def render(*args, **kwargs):
         renders.append(args)
@@ -497,13 +539,14 @@ def test_baseline_is_separate_cached_and_uses_starting_model(tmp_path, monkeypat
     monkeypatch.setattr(previews.runtime, "render", render)
     monkeypatch.setattr(previews.runtime, "decode", lambda *a, **kw: {"waveform": torch.ones(1, 2, 480) * .1})
     path = tmp_path / "run.json"
-    write_json(path, {"signature": "test", "assets": {"model": "base"}, "checkpoints": [{"step": 1, "adapter": "trained", "branch": "ar"}]})
+    write_json(path, {"signature": "test", "assets": {"model": "base", "initial_nar": "initial-nar" if acoustic else ""}, "checkpoints": [{"step": 1, "adapter": "trained", "branch": "ar", "acoustic_adapter": "trained-nar" if acoustic else ""}]})
     request = {"run": str(path), "style": "piano", "lyrics": "", "seed": 42, "max_seconds": 8}
     previews.preview(request, events.append, lambda: None)
     record = read_json(path)
     assert len(record["checkpoints"]) == 1
     assert "adapter" not in record["baseline"]
-    assert patches == [["trained"]]
+    expected_paths = [["initial-nar"], ["trained", "trained-nar"]] if acoustic else [["trained"]]
+    assert patches == [(paths, 1.0, 1.0) for paths in expected_paths]
     assert len(renders) == 2
     assert {e["phase"] for e in events if e["type"] == "preview_progress"} >= {"loading", "tokens", "synthesis", "saving", "complete"}
     assert (tmp_path / record["baseline"]["preview"]).is_file()
@@ -512,6 +555,21 @@ def test_baseline_is_separate_cached_and_uses_starting_model(tmp_path, monkeypat
     previews.preview({**request, "seed": 43}, events.append, lambda: None)
     assert len(renders) == 4
     assert read_json(path)["baseline"]["preview"] != record["baseline"]["preview"]
+    for ar, nar in ((0.75, 1.0), (0.75, 0.5), (0.0, 0.0)):
+        previous = read_json(path)["baseline"]["preview"]
+        before = len(renders)
+        adjusted = {**request, "ar_strength": ar, "nar_strength": nar}
+        previews.preview(adjusted, events.append, lambda: None)
+        assert len(renders) == before + 2
+        assert patches[-len(expected_paths):] == [(paths, ar, nar) for paths in expected_paths]
+        updated = read_json(path)
+        assert updated["baseline"]["preview"] != previous
+        for sample in [updated["baseline"], *updated["checkpoints"]]:
+            assert sample["preview_settings"]["ar_strength"] == ar
+            assert sample["preview_settings"]["nar_strength"] == nar
+        previews.preview(adjusted, events.append, lambda: None)
+        assert len(renders) == before + 2
+
 
 
 def test_step_zero_resume_precedes_optimizer_updates(tmp_path, monkeypatch):

@@ -11,7 +11,7 @@ from .math import LoRALinear, flow_loss
 from .paired_prepare import read_audio, load_encoder, encode_target, save_array
 from .data import fingerprint
 from ..downloads import MODELS
-from ..protocol import CODEC_OFFSET
+from ..protocol import CODEC_OFFSET, CONTEXT
 
 
 def fold_acoustic(model, path):
@@ -30,15 +30,16 @@ def fold_acoustic(model, path):
     return initial
 
 
-def install_acoustic(model, rank):
+def install_acoustic(model, rank, train_projections=True):
     for key in targets(model.config.num_hidden_layers, "nar"):
         parent, name = key.rsplit(".", 1)
         setattr(model.get_submodule(parent), name, LoRALinear(model.get_submodule(key), rank))
-    model.vae2llm.float().requires_grad_(True)
-    model.llm2vae.float().requires_grad_(True)
+    if train_projections:
+        model.vae2llm.float().requires_grad_(True)
+        model.llm2vae.float().requires_grad_(True)
 
 
-def acoustic_weights(model, initial, model_directory, trained=True):
+def acoustic_weights(model, initial, model_directory, trained=True, projections=True):
     values = {k: v.contiguous() for k, v in initial.items()}
     if trained:
         for key in targets(model.config.num_hidden_layers, "nar"):
@@ -49,11 +50,12 @@ def acoustic_weights(model, initial, model_directory, trained=True):
                 b = torch.cat((initial[key + ".lora_up.weight"].float(), b.float()), 1)
             values[key + ".lora_down.weight"] = a.contiguous()
             values[key + ".lora_up.weight"] = b.contiguous()
-        with safe_open(str(Path(model_directory) / "model.safetensors"), framework="pt", device="cpu") as base:
-            for module in ("vae2llm", "llm2vae"):
-                for name, suffix in (("weight", ".diff"), ("bias", ".diff_b")):
-                    value = getattr(model.get_submodule(module), name).detach().cpu().float()
-                    values[module + suffix] = (value - base.get_tensor(module + "." + name).float()).contiguous()
+        if projections:
+            with safe_open(str(Path(model_directory) / "model.safetensors"), framework="pt", device="cpu") as base:
+                for module in ("vae2llm", "llm2vae"):
+                    for name, suffix in (("weight", ".diff"), ("bias", ".diff_b")):
+                        value = getattr(model.get_submodule(module), name).detach().cpu().float()
+                        values[module + suffix] = (value - base.get_tensor(module + "." + name).float()).contiguous()
     return values
 
 
@@ -83,15 +85,19 @@ def prepare_targets(songs, directory, emit, cancelled):
         del encoder
 
 
-def acoustic_loss(model, item, seed, training=True, t=None):
+def acoustic_loss(model, item, seed, training=True, t=None, window_frames=512, timestep="beta"):
     device = model.model.embed_tokens.weight.device
     rng = random.Random(seed)
-    frames = min(512, len(item["codec"]))
+    frames = min(window_frames, len(item["codec"]), (CONTEXT - len(item["prefix"]) - 3) // 2)
+    if frames < 1:
+        raise ValueError(f"{item['name']}: prompt and score leave no acoustic training context")
     offset = rng.randrange(len(item["codec"]) - frames + 1) if training else (len(item["codec"]) - frames) // 2
     target = torch.from_numpy(item["latents"][offset:offset + frames].copy()).to(device)
     ids = torch.as_tensor(item["codec"][offset:offset + frames].astype(np.int64), device=device) + CODEC_OFFSET
     embeddings = model.model.embed_tokens(ids)
-    noise = torch.randn(target.shape, device=device, generator=torch.Generator(device=device).manual_seed(seed))
-    t = min(.98, max(.02, rng.betavariate(2, 2))) if t is None else t
+    generator = torch.Generator(device=device).manual_seed(seed)
+    if t is None:
+        t = torch.randn((), device=device, generator=generator).sigmoid().item() if timestep == "sigmoid" else min(.98, max(.02, rng.betavariate(2, 2)))
+    noise = torch.randn(target.shape, device=device, generator=generator)
     with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == "cuda"):
         return flow_loss(model, item["prefix"], embeddings, target, t, noise, False, training)

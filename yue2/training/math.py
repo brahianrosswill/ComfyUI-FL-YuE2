@@ -1,5 +1,6 @@
 """Differentiable YuE2 training paths; inference interfaces remain unchanged."""
 import math
+from contextlib import contextmanager
 
 import torch
 from torch import nn
@@ -30,9 +31,23 @@ class LoRALinear(nn.Module):
         self.base = base
         self.A = nn.Parameter(torch.randn(rank, base.in_features, device=base.weight.device) / math.sqrt(base.in_features))
         self.B = nn.Parameter(torch.zeros(base.out_features, rank, device=base.weight.device))
+        self.scale = 1.0
 
     def forward(self, x):
-        return self.base(x) + ((x.float() @ self.A.T) @ self.B.T).to(x.dtype)
+        return self.base(x) + self.scale * ((x.float() @ self.A.T) @ self.B.T).to(x.dtype)
+
+
+@contextmanager
+def adapter_scale(model, scale):
+    modules = [module for module in model.modules() if isinstance(module, LoRALinear)]
+    previous = [module.scale for module in modules]
+    for module in modules:
+        module.scale = scale
+    try:
+        yield
+    finally:
+        for module, value in zip(modules, previous):
+            module.scale = value
 
 
 def qkv(module, x, cos, sin):
@@ -80,6 +95,30 @@ def ar_loss(model, ids, prefix_length, cursor=None, cursor_head=None, checkpoint
         scores = query @ h[begin:end].float().T / math.sqrt(h.shape[-1])
         cursor_loss = -(scores.log_softmax(-1) * targets[:count]).sum(-1).mean()
     return loss, cursor_loss
+
+
+def ar_joint_loss(model, ids, prefix_length, kl_weight, checkpoint_layers=True):
+    with torch.set_grad_enabled(False), adapter_scale(model, 0.0):
+        base = hidden(model, ids, False)[0, prefix_length - 1:-1].detach()
+    adapted = hidden(model, ids, checkpoint_layers)[0, prefix_length - 1:-1]
+    target = ids[0, prefix_length:]
+    ce_loss = torch.zeros((), device=adapted.device)
+    kl_loss = torch.zeros((), device=adapted.device)
+    for start in range(0, len(target), 256):
+        stop = start + 256
+        def losses(value, base_value, labels):
+            logits = model.lm_head(value).float()
+            ce = F.cross_entropy(logits, labels, reduction="sum")
+            if not kl_weight:
+                return ce, ce.new_zeros(())
+            with torch.set_grad_enabled(False):
+                base_logp = model.lm_head(base_value).float().log_softmax(-1)
+            kl = F.kl_div(logits.log_softmax(-1), base_logp, reduction="sum", log_target=True)
+            return ce, kl
+        ce, kl = checkpoint(losses, adapted[start:stop], base[start:stop], target[start:stop], use_reentrant=False)
+        ce_loss = ce_loss + ce
+        kl_loss = kl_loss + kl
+    return ce_loss / len(target), kl_loss / len(target)
 
 
 def nar_layer(layer, x, ar_k, ar_v, cos, sin):

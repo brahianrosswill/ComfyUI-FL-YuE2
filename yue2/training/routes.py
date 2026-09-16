@@ -52,6 +52,20 @@ async def review_caption(request):
         return web.json_response({"error": str(error)}, status=400)
 
 
+async def get_caption_audio(request):
+    try:
+        result = read_json(caption_manifest(request.match_info["identifier"]))
+        song = next((song for song in result["songs"] if song["name"] == request.match_info["name"]), None)
+        if song is None:
+            raise ValueError("Audio is not part of this caption result")
+        path = contained(result.get("source_directory", result["directory"]), song["audio"])
+        if path.suffix.lower() not in {".wav", ".flac", ".mp3"} or not path.is_file():
+            raise ValueError("Caption audio is unavailable")
+        return web.FileResponse(path)
+    except (ValueError, FileNotFoundError, KeyError) as error:
+        return web.json_response({"error": str(error)}, status=400)
+
+
 async def get_run(request):
     try:
         name = run_name(request.match_info["name"])
@@ -79,6 +93,7 @@ async def get_preview(request):
 if hasattr(PromptServer, "instance"):
     routes = PromptServer.instance.routes
     routes.get("/fl_yue2/captions/{identifier}")(get_captions)
+    routes.get("/fl_yue2/captions/{identifier}/audio/{name}")(get_caption_audio)
     routes.post("/fl_yue2/captions/review")(review_caption)
     routes.get("/fl_yue2/training/run/{name}")(get_run)
     routes.get("/fl_yue2/training/audio/{name}/{filename}")(get_preview)

@@ -296,6 +296,59 @@ def test_original_trainer_acoustic_resume_and_ar_isolation(tmp_path, monkeypatch
     assert Path(run["checkpoints"][-1]["acoustic_adapter"]).is_file()
     monkeypatch.setattr(training_nodes, "lora_root", lambda: tmp_path / "exports")
     captured = []
-    monkeypatch.setattr(training_nodes.adapters, "patch_music", lambda model, paths, strength: captured.append(paths))
+    monkeypatch.setattr(training_nodes.adapters, "patch_music", lambda model, paths, strength, nar_strength: captured.append(paths))
     training_nodes.FL_YuE2_LoadLoRA().load(None, "joint/step-000004.safetensors", 1.0)
     assert [Path(path) for path in captured[0]] == [tmp_path / "exports/joint/step-000004.safetensors", tmp_path / "exports/joint/step-000004-nar.safetensors"]
+
+
+def test_joint_recipe_resume_is_deterministic(tmp_path, monkeypatch):
+    torch.manual_seed(0)
+    monkeypatch.setattr(training_math, "MUSIC_END", 6)
+    monkeypatch.setattr(acoustic, "CODEC_OFFSET", 0)
+    monkeypatch.setattr(trainer, "CODEC_OFFSET", 0)
+    monkeypatch.setattr(trainer, "MUSIC_END", 6)
+    base = tiny_model().requires_grad_(False)
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    save_file(base.state_dict(), str(model_dir / "model.safetensors"))
+    def load_model(path):
+        model = tiny_model().requires_grad_(False)
+        model.load_state_dict(base.state_dict())
+        return model
+    monkeypatch.setattr(trainer, "load_model", load_model)
+    monkeypatch.setattr(trainer, "YuE2TextTokenizer", lambda *args: None)
+    monkeypatch.setattr(trainer, "token_prefixes", lambda *args, **kwargs: [1, 2])
+    monkeypatch.setattr(trainer, "check_dataset", lambda *args: None)
+    def adapter_loss(model, nar):
+        values = [parameter for name, parameter in model.named_parameters() if parameter.requires_grad and ("nar_" in name) == nar]
+        return sum((parameter.float() - .01).square().mean() for parameter in values)
+    monkeypatch.setattr(trainer, "ar_joint_loss", lambda model, *args, **kwargs: (adapter_loss(model, False), adapter_loss(model, False) * 0))
+    monkeypatch.setattr(trainer, "acoustic_loss", lambda model, *args, **kwargs: adapter_loss(model, True))
+    codec = np.array([3, 4, 5], dtype=np.int32)
+    tokens = tmp_path / "tokens.npy"
+    np.save(tokens, codec)
+    head = tmp_path / "head"
+    head.write_bytes(b"head")
+    songs = [{"name": split, "tokens": str(tokens), "style": "music", "lyrics": "", "split": split} for split in ("train", "validation")]
+    dataset = tmp_path / "dataset.json"
+    write_json(dataset, {"fingerprint": "dataset", "head_hash": trainer.digest(head), "score_planning": "off", "songs": songs})
+    def targets(songs, *args):
+        for item in songs:
+            item["latents"] = np.random.default_rng(5).normal(size=(3, 64)).astype(np.float32)
+    monkeypatch.setattr(trainer, "prepare_targets", targets)
+    assets = {"model": str(model_dir), "head": str(head), "model_revision": "test"}
+    config = {"mode": "ar", "recipe": "ai_toolkit_joint_v1", "seed": 42, "rank": 2, "learning_rate": .001,
+              "weight_decay": .0001, "ar_kl_weight": .2, "abc_dropout": .5, "ar_lr_multiplier": 1,
+              "acoustic_window_frames": 64, "nar_start": "base", "steps": 4, "save_every": 2,
+              "sequence_tokens": 32, "allow_truncation": False, "accumulation": 1}
+    def request(name):
+        return {"config": config, "assets": assets, "dataset": str(dataset), "run_directory": str(tmp_path / name),
+                "adapter_directory": str(tmp_path / "exports" / name), "pause_at_checkpoint": False}
+    trainer.train(request("full"), lambda _: None, lambda: None)
+    resumed = request("resumed")
+    trainer.train({**resumed, "stop_after": 2}, lambda _: None, lambda: None)
+    trainer.train({**resumed, "resume": str(tmp_path / "resumed/resume.pt")}, lambda _: None, lambda: None)
+    for filename in ("step-000004.safetensors", "step-000004-nar.safetensors"):
+        first = load_file(str(tmp_path / "exports/full" / filename))
+        second = load_file(str(tmp_path / "exports/resumed" / filename))
+        assert all(torch.equal(first[key], second[key]) for key in first)

@@ -8,7 +8,7 @@
 [![Patreon](https://img.shields.io/badge/Patreon-Support%20Me-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Machinedelusions)
 [![Comfy Registry](https://img.shields.io/badge/Comfy-Registry-16727c?style=for-the-badge)](https://registry.comfy.org/publishers/machinedelusions/nodes/comfyui-fl-yue2)
 
-Compose songs from lyrics and style, build or import an ABC score, and render 48 kHz stereo audio with YuE2-3B. Generate music and train AR LoRAs with reviewed datasets and checkpoint previews. The nodes work with ComfyUI's standard audio preview, saving, and processing nodes.
+Compose songs from lyrics and style, build or import an ABC score, and render 48 kHz stereo audio with YuE2-3B. Generate music and train legacy AR or joint AR/NAR LoRAs with reviewed datasets and checkpoint previews. The nodes work with ComfyUI's standard audio preview, saving, and processing nodes.
 
 ## Install
 
@@ -47,7 +47,7 @@ Drag the included [score editor workflow](example_workflows/score_editor_to_song
 
 The Compose node displays generated ABC. Connect core **Preview as Text** to its score output to compose without rendering audio. Disconnect the supplied score to generate a new score from style and lyrics. An unchanged composition retains its exact token prefix through the composition socket.
 
-Supplying a score requires `full` or `melody`. This is score-conditioned generation, not audio transcription. SheetSage2/audio-to-score transcription is a separate upstream environment and is not included in this pack.
+Supplying a score requires `full` or `melody`. Interactive generation remains score-conditioned rather than audio-to-audio. Training preparation can optionally use pinned SheetSage2 to create missing `.abc.txt` targets for the joint score recipe; SheetSage2 is CC BY-NC 4.0.
 
 The output is a stereo mix. Use an existing audio-separation node for stems. Editing a composition generates a new recording; it does not preserve unchanged regions of an earlier waveform.
 
@@ -93,9 +93,9 @@ Interaction choices follow the navigation, drawing, preview and editing patterns
 
 ![Saved AR training loss and checkpoint audio previews](assets/trainer-checkpoints.png)
 
-See [training guide](docs/TRAINING.md) for Gemini music captions, AR LoRA training, resume, and checkpoint playback. Training assets download into ComfyUI model folders when queued with download_missing enabled; Python training dependencies are installed separately.
+See [training guide](docs/TRAINING.md) for Gemini music captions, legacy AR training, the joint AR/NAR score recipe, resume, and checkpoint playback. Training assets download into ComfyUI model folders when queued with download_missing enabled; Python training dependencies are installed separately.
 
-Use [Training Studio](example_workflows/training_studio.json) with your own recordings and captions. The experimental `train_acoustic` option in Train Config learns an acoustic companion alongside the AR LoRA; previews and Load LoRA select both weights automatically. Generation remains text-only. Install the optional training dependencies in ComfyUI's Python environment:
+Use [Training Studio](example_workflows/training_studio.json) with your own recordings and captions. It contains the legacy Train Config; replace that node with Joint Score Train Config to use the AI Toolkit-style recipe, then select score planning in Prepare Dataset and either provide `.abc.txt` sidecars or enable SheetSage2 transcription. The legacy config's experimental `train_acoustic` option learns an acoustic companion alongside the AR LoRA. Joint training always trains AR and NAR adapters together. Previews and Load LoRA select both weights automatically, while generation remains text-only. Install the optional training dependencies in ComfyUI's Python environment:
 
 ```bash
 python -m pip install -r requirements-training.txt
@@ -103,7 +103,7 @@ python -m pip install -r requirements-training.txt
 
 Queuing `train` with blank `resume` starts fresh and overwrites the named run and its checkpoints/previews. Change the output name to keep an earlier run, or set `resume=resume.pt` to continue it.
 
-Generated captions are accepted automatically and remain editable. With previews enabled, a step-0 baseline renders before training starts, followed by a sample at each checkpoint. A separate inference progress bar tracks sample generation before training resumes. `Use` selects a saved checkpoint for inference without retraining.
+Generated captions are accepted automatically and remain editable. The captioner panel can process the full folder or test one random track without changing dataset sidecars. With previews enabled, a step-0 baseline renders before training starts, followed by a sample at each checkpoint. A separate inference progress bar tracks sample generation before training resumes. `Use` selects a saved checkpoint for inference without retraining. See the [joint-recipe smoke benchmark](docs/JOINT_RECIPE_BENCHMARK.md) for measured runtime, memory, and held-out losses.
 
 Paired **audio-to-audio adapters** have a separate [training guide](docs/AUDIO_ADAPTERS.md). Train from aligned source/target recordings with continuous source-audio conditioning, acoustic LoRAs, or source encoder head adaptation. The trainer compares source, target, step-0 baseline and saved checkpoints with playable validation samples. The screenshot below shows the real conditioned low-pass training run.
 

@@ -71,8 +71,8 @@ async function json(path, body) {
 }
 
 class TrainingPanel {
-    constructor(node, caption) {
-        this.node = node; this.caption = caption; this.metrics = []; this.job = null; this.activeOperation = null;
+    constructor(node) {
+        this.node = node; this.metrics = []; this.job = null; this.activeOperation = null;
         this.createUI();
         this.listener = event => {
             if (String(event.detail.node) !== String(node.id)) return;
@@ -97,16 +97,15 @@ class TrainingPanel {
         api.addEventListener("fl_yue2.training", this.listener);
     }
     createUI() {
-        const caption = this.caption;
         const pairedPrepare = this.node.comfyClass === "FL_YuE2_PrepareAudioPairs";
         this.root = element("div"); this.root.className = "yue2-training";
-        element("h3", this.root, pairedPrepare ? "Prepare audio pairs" : caption ? "Music captions & lyrics" : "YuE2 training studio");
-        this.status = element("div", this.root, pairedPrepare ? "Queue to encode aligned source and target recordings." : caption ? "Enter a Google API key above, then queue to send selected recordings to Google." : "Queue to begin. Saved checkpoints remain available after interruption.");
+        element("h3", this.root, pairedPrepare ? "Prepare audio pairs" : "YuE2 training studio");
+        this.status = element("div", this.root, pairedPrepare ? "Queue to encode aligned source and target recordings." : "Queue to begin. Saved checkpoints remain available after interruption.");
         this.progress = element("progress", this.root); this.progress.max = 1; this.progress.value = 0;
         this.stats = element("small", this.root);
-        if (!caption && !pairedPrepare) { this.chart = element("canvas", this.root); this.chart.width = 900; this.chart.height = 220; }
+        if (!pairedPrepare) { this.chart = element("canvas", this.root); this.chart.width = 900; this.chart.height = 220; }
         if (!pairedPrepare) {
-            this.refresh = element("button", this.root, caption ? "Load captions" : "Refresh saved run");
+            this.refresh = element("button", this.root, "Refresh saved run");
             this.refresh.onclick = () => this.load().catch(e => this.status.textContent = e.message);
         }
         this.items = element("div", this.root);
@@ -131,35 +130,17 @@ class TrainingPanel {
         });
     }
     async load() {
-        if (this.caption) {
-            const id = this.node.properties.yue2_captions;
-            if (!id) return;
-            const data = await json(`/fl_yue2/captions/${id}`);
-            this.items.replaceChildren();
-            for (const song of data.songs) {
-                const card = element("article", this.items); element("b", card, song.name);
-                const state = element("small", card, "Automatically accepted - editable");
-                const style = element("textarea", card); style.value = song.style; style.setAttribute("aria-label", "Style caption");
-                const lyrics = element("textarea", card); lyrics.value = song.lyrics; lyrics.style.minHeight = "170px"; lyrics.setAttribute("aria-label", "Full lyrics");
-                if (song.uncertainty) element("small", card, song.uncertainty).className = "warning";
-                const save = element("button", card, "Save changes");
-                save.onclick = async () => {
-                    try { await json("/fl_yue2/captions/review", {identifier:id, name:song.name, style:style.value, lyrics:lyrics.value}); state.textContent = "Changes saved"; }
-                    catch (e) { state.textContent = e.message; }
-                };
-            }
-        } else {
-            const name = this.node.widgets?.find(w => w.name === "output_name")?.value || this.node.properties.yue2_run;
-            if (!name) return;
-            const request = this.runRequest = (this.runRequest || 0) + 1;
-            const run = await json(`/fl_yue2/training/run/${encodeURIComponent(name)}`);
-            if (request !== this.runRequest) return;
-            this.metrics = run.metrics; this.draw();
-            this.updateProgress({...run.metrics.at(-1), step: run.step, max_steps: run.config.steps});
-            if (this.activeOperation !== "preview") this.setStatus(`${run.status} - ${run.mode.toUpperCase()} - step ${run.step}`, run.status);
-            this.showCheckpoints(run, name);
-        }
+        const name = this.node.widgets?.find(w => w.name === "output_name")?.value || this.node.properties.yue2_run;
+        if (!name) return;
+        const request = this.runRequest = (this.runRequest || 0) + 1;
+        const run = await json(`/fl_yue2/training/run/${encodeURIComponent(name)}`);
+        if (request !== this.runRequest) return;
+        this.metrics = run.metrics; this.draw();
+        this.updateProgress({...run.metrics.at(-1), step: run.step, max_steps: run.config.steps});
+        if (this.activeOperation !== "preview") this.setStatus(`${run.status} - ${run.mode.toUpperCase()} - step ${run.step}`, run.status);
+        this.showCheckpoints(run, name);
     }
+
     destroy() { api.removeEventListener("fl_yue2.training", this.listener); this.root.querySelectorAll("audio").forEach(a => {a.pause(); a.removeAttribute("src");}); this.root.remove(); }
 }
 
@@ -190,7 +171,7 @@ class TrainerPanel extends TrainingPanel {
         const legend = section("legend", chart);
         this.series = this.node.comfyClass === "FL_YuE2_AudioAdapterTrainer"
             ? [["loss", "Training", "#06b6d4"], ["artist_validation", "Paired validation", "#f59e0b"], ["wrong_source_flow", "Wrong source", "#8b5cf6"]]
-            : [["loss", "Training", "#06b6d4"], ["artist_validation", "Artist validation", "#f59e0b"], ["generated_validation", "Generated validation", "#8b5cf6"], ["acoustic_validation", "Acoustic validation", "#22c55e"]];
+            : [["loss", "Training", "#06b6d4"], ["artist_validation", "Artist validation", "#f59e0b"], ["ar_validation", "AR validation", "#8b5cf6"], ["nar_validation", "NAR validation", "#22c55e"], ["kl_validation", "KL validation", "#ef4444"], ["generated_validation", "Generated validation", "#a78bfa"], ["acoustic_validation", "Acoustic validation", "#14b8a6"]];
         for (const [, label, color] of this.series) { const el = element("span", legend, label); el.style.color = color; }
         const plot = section("chart-plot", chart); this.chart = section("chart-canvas", plot, "canvas");
         this.status = section("status", content, "div", "Ready to train"); this.status.setAttribute("role", "status");
@@ -350,19 +331,25 @@ class TrainerPanel extends TrainingPanel {
 app.registerExtension({
     name:"FL.YuE2.Training",
     beforeRegisterNodeDef(type, data) {
-        if (!["FL_YuE2_GeminiMusicCaptioner", "FL_YuE2_LoRATrainer", "FL_YuE2_PrepareDataset", "FL_YuE2_AudioAdapterTrainer", "FL_YuE2_PrepareAudioPairs"].includes(data.name)) return;
+        if (!["FL_YuE2_LoRATrainer", "FL_YuE2_PrepareDataset", "FL_YuE2_AudioAdapterTrainer", "FL_YuE2_PrepareAudioPairs"].includes(data.name)) return;
         const created = type.prototype.onNodeCreated, executed = type.prototype.onExecuted, removed = type.prototype.onRemoved, configured = type.prototype.onConfigure;
         type.prototype.onNodeCreated = function() {
             created?.apply(this, arguments); this.properties ||= {};
             const trainer = ["FL_YuE2_LoRATrainer", "FL_YuE2_AudioAdapterTrainer"].includes(data.name);
             const pairedPrepare = data.name === "FL_YuE2_PrepareAudioPairs";
-            this.yue2Training = trainer ? new TrainerPanel(this, false) : new TrainingPanel(this, data.name === "FL_YuE2_GeminiMusicCaptioner");
+            this.yue2Training = trainer ? new TrainerPanel(this) : new TrainingPanel(this);
             const widget = this.addDOMWidget("yue2_training", "custom", this.yue2Training.root, {serialize:false, hideOnZoom:false, getMinHeight: () => pairedPrepare ? 150 : trainer ? 400 : 450});
             if (!trainer) widget.computeSize = () => pairedPrepare ? [360, 150] : [520, 450];
             this.setSize([Math.max(trainer || pairedPrepare ? 400 : 550,this.size[0]), Math.max(pairedPrepare ? 270 : trainer ? 500 : 760,this.size[1])]);
         };
-        type.prototype.onExecuted = function(message) { executed?.apply(this,arguments); if (message.run) this.properties.yue2_run = message.run[0]; if (message.captions) this.properties.yue2_captions = message.captions[0]; this.yue2Training?.load().catch(e => this.yue2Training.status.textContent = e.message); };
-        type.prototype.onConfigure = function() { configured?.apply(this,arguments); this.yue2Training?.load().catch(() => {}); };
+        type.prototype.onExecuted = function(message) { executed?.apply(this,arguments); if (message.run) this.properties.yue2_run = message.run[0]; this.yue2Training?.load().catch(e => this.yue2Training.status.textContent = e.message); };
+        type.prototype.onConfigure = function() {
+            configured?.apply(this,arguments);
+            for (const widget of this.widgets || []) {
+                if (["preview_ar_strength", "preview_nar_strength"].includes(widget.name) && (widget.value === "" || widget.value == null)) widget.value = 1;
+            }
+            this.yue2Training?.load().catch(() => {});
+        };
         type.prototype.onRemoved = function() { this.yue2Training?.destroy(); removed?.apply(this,arguments); };
     }
 });

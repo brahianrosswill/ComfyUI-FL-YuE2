@@ -1,4 +1,5 @@
 from pathlib import Path
+import uuid
 
 import folder_paths
 from comfy_api.latest import io
@@ -7,7 +8,7 @@ from safetensors import safe_open
 from .. import adapters
 from ..downloads import resolve, MODELS
 from . import downloads as training_downloads
-from .data import dataset, read_run, run_name, contained, fingerprint
+from .data import dataset, read_run, run_name, contained, fingerprint, audio_files
 from .service import output_root, run_worker
 
 
@@ -68,18 +69,25 @@ class FL_YuE2_GeminiMusicCaptioner:
                              "task": (["both", "style", "lyrics"], {"tooltip": "Generate style descriptions, transcribe lyrics, or do both. Review the resulting text before training."}), "replace_existing": ("BOOLEAN", {"default": False, "tooltip": "Regenerate existing captions instead of reusing saved results."}),
                              "instructions": ("STRING", {"multiline": True, "default": "", "tooltip": "Additional directions for Gemini, such as how to describe the genre or handle unclear vocals."}),
                              "api_key": ("STRING", {"default": "", "multiline": False, "dynamicPrompts": False, "tooltip": "Google Gemini API key for this run. Machine environment keys are not used. Clear this field before sharing a workflow; normal ComfyUI widgets are saved with the workflow."}),
-                             "concurrent_requests": ("INT", {"default": 3, "min": 1, "max": 8, "tooltip": "Recordings captioned at the same time. 1 is sequential. Reduce this if Google returns quota/rate-limit errors. Song excerpts stay in order within each recording."})}, "hidden": {"unique_id": "UNIQUE_ID"}}
+                             "concurrent_requests": ("INT", {"default": 3, "min": 1, "max": 8, "tooltip": "Recordings captioned at the same time. 1 is sequential. Reduce this if Google returns quota/rate-limit errors. Song excerpts stay in order within each recording."})}, "optional": {"test_random": ("BOOLEAN", {"default": False})}, "hidden": {"unique_id": "UNIQUE_ID"}}
 
-    def caption(self, audio_directory, model, task, replace_existing, instructions, unique_id=None, api_key="", concurrent_requests=3):
+    @classmethod
+    def IS_CHANGED(cls, audio_directory, test_random=False, replace_existing=False, **kwargs):
+        if test_random or replace_existing:
+            return float("nan")
+        files = audio_files(Path(folder_paths.get_input_directory()) / audio_directory)
+        return fingerprint([(str(path), path.stat().st_size, path.stat().st_mtime_ns) for path in files])
+
+    def caption(self, audio_directory, model, task, replace_existing, instructions, unique_id=None, api_key="", concurrent_requests=3, test_random=False):
         api_key = api_key.strip()
         if not api_key:
             raise ValueError("Enter a Google API key on the Gemini Music Captioner node")
         root = (Path(folder_paths.get_input_directory()) / audio_directory).resolve(strict=True)
-        name = fingerprint(str(root))[:24]
+        name = uuid.uuid4().hex[:24] if test_random else fingerprint(str(root))[:24]
         path = output_root() / "captions" / name / "manifest.json"
         result = run_worker({"operation": "caption", "directory": str(root), "model": model, "task": task,
-                             "replace_existing": replace_existing, "instructions": instructions, "concurrent_requests": concurrent_requests, "output": str(path)}, unique_id, api_key=api_key)
-        return {"ui": {"captions": [name], "text": ["Review the generated sidecars before preparing the dataset."]}, "result": (result,)}
+                             "replace_existing": replace_existing, "instructions": instructions, "test_random": test_random, "concurrent_requests": concurrent_requests, "output": str(path)}, unique_id, api_key=api_key)
+        return {"ui": {"caption_test" if test_random else "captions": [name]}, "result": (result,)}
 
 
 class FL_YuE2_DatasetMaker:
@@ -112,14 +120,19 @@ class FL_YuE2_PrepareDataset:
     def INPUT_TYPES(cls):
         return {"required": {"dataset": ("YUE2_DATASET",), "assets": ("YUE2_TRAINING_ASSETS",),
                              "align_lyrics": ("BOOLEAN", {"default": False, "tooltip": "Separate vocals and align reviewed lyrics to the recording. Requires additional alignment models and preparation time."}),
-                             "cache_directory": ("STRING", {"default": "prepared", "tooltip": "Folder inside output/yue2_training"})},
+                             "cache_directory": ("STRING", {"default": "prepared", "tooltip": "Folder inside output/yue2_training"}),
+                             "score_planning": (["off", "melody", "full"], {"default": "off", "tooltip": "Train from reviewed .abc.txt sidecars. Full keeps melody and chords; melody expects a melody-only score."}),
+                             "transcribe_missing_scores": ("BOOLEAN", {"default": False, "tooltip": "Use pinned SheetSage2 to create missing ABC scores during preparation. SheetSage2 is CC BY-NC 4.0."})},
                 "hidden": {"unique_id": "UNIQUE_ID"}}
 
-    def prepare(self, dataset, assets, align_lyrics, cache_directory, unique_id=None):
+    def prepare(self, dataset, assets, score_planning, transcribe_missing_scores, align_lyrics, cache_directory, unique_id=None):
         if align_lyrics:
             assets = {**assets, "alignment_models": str(training_downloads.alignment(assets["download_missing"]))}
+        if score_planning != "off" and transcribe_missing_scores:
+            assets = {**assets, "sheetsage": training_downloads.sheetsage(assets["download_missing"])}
         return (run_worker({"operation": "prepare", "dataset": dataset, "assets": assets,
-                            "align": align_lyrics, "cache_directory": str(contained(output_root(), cache_directory))}, unique_id),)
+                            "align": align_lyrics, "score_planning": score_planning,
+                            "cache_directory": str(contained(output_root(), cache_directory))}, unique_id),)
 
 
 class FL_YuE2_TrainConfig(io.ComfyNode):
@@ -145,6 +158,31 @@ class FL_YuE2_TrainConfig(io.ComfyNode):
         return io.NodeOutput({"mode": "ar", **kwargs})
 
 
+class FL_YuE2_JointTrainConfig(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(node_id="FL_YuE2_JointTrainConfig", display_name="FL YuE2 · Joint Score Train Config", category=CATEGORY,
+            inputs=[io.Int.Input("rank", default=32, min=1, max=128, tooltip="LoRA rank for both AR and NAR transformer projections."),
+                io.Float.Input("learning_rate", default=1e-4, min=1e-7, max=0.01, step=1e-6, round=False, extra_dict={"precision": 7}),
+                io.Float.Input("weight_decay", default=1e-4, min=0, max=0.1, step=1e-5, round=False, extra_dict={"precision": 6}),
+                io.Float.Input("ar_kl_weight", default=0.2, min=0, max=2, step=0.01, extra_dict={"precision": 2}, tooltip="KL(base || adapter) weight used to preserve the base AR distribution."),
+                io.Float.Input("abc_dropout", default=0.5, min=0, max=1, step=0.05, extra_dict={"precision": 2}, tooltip="Probability of training an example in direct mode without its score."),
+                io.Float.Input("ar_lr_multiplier", default=1.0, min=0.01, max=2, step=0.05, extra_dict={"precision": 2}),
+                io.Int.Input("acoustic_window_frames", default=1500, min=64, max=3000, step=64, tooltip="Random NAR flow-matching window. YuE2 uses 25 frames per second."),
+                io.Combo.Input("nar_start", options=["base", "community_v4"], default="base", tooltip="AI Toolkit starts from base NAR; community_v4 folds the released acoustic adapter first."),
+                io.Int.Input("sequence_tokens", default=24576, min=256, max=24576),
+                io.Boolean.Input("allow_truncation", default=False),
+                io.Int.Input("steps", default=3000, min=1, max=100000),
+                io.Int.Input("save_every", default=200, min=1, max=5000),
+                io.Int.Input("accumulation", default=1, min=1, max=64),
+                io.Int.Input("seed", default=42, min=0, max=2147483647)],
+            outputs=[io.Custom("YUE2_TRAIN_CONFIG").Output()])
+
+    @classmethod
+    def execute(cls, **kwargs):
+        return io.NodeOutput({"mode": "ar", "recipe": "ai_toolkit_joint_v1", **kwargs})
+
+
 class FL_YuE2_LoRATrainer:
     CATEGORY = CATEGORY
     FUNCTION = "train"
@@ -168,6 +206,8 @@ class FL_YuE2_LoRATrainer:
             "assets": ("YUE2_TRAINING_ASSETS", {"lazy": True}),
             "dataset": ("YUE2_PREPARED_DATASET", {"lazy": True}),
             "config": ("YUE2_TRAIN_CONFIG", {"lazy": True}),
+            "preview_ar_strength": ("FLOAT", {"default": 1.0, "min": 0, "max": 2, "step": 0.05, "tooltip": "AR adapter strength for validation audio only. 0 disables the trained AR adapter; 1 applies it fully. Does not affect training."}),
+            "preview_nar_strength": ("FLOAT", {"default": 1.0, "min": 0, "max": 2, "step": 0.05, "tooltip": "Acoustic companion strength for validation audio, including the step-0 baseline. Scales the entire NAR adapter, including its pretrained component. Does not affect training."}),
         }, "hidden": {"unique_id": "UNIQUE_ID"}}
 
     @classmethod
@@ -178,11 +218,13 @@ class FL_YuE2_LoRATrainer:
         return [key for key in ("assets", "dataset", "config") if key in kwargs and kwargs[key] is None] if action == "train" else []
 
     def train(self, action, output_name, resume, selected_step, render_previews, preview_style, preview_lyrics,
-              preview_seed, preview_seconds, assets=None, dataset=None, config=None, unique_id=None):
+              preview_seed, preview_seconds, assets=None, dataset=None, config=None, unique_id=None,
+              preview_ar_strength=1.0, preview_nar_strength=1.0):
         name = run_name(output_name)
         directory = output_root() / name
         path = directory / "run.json"
-        settings = {"style": preview_style, "lyrics": preview_lyrics, "seed": preview_seed, "max_seconds": preview_seconds}
+        settings = {"style": preview_style, "lyrics": preview_lyrics, "seed": preview_seed, "max_seconds": preview_seconds,
+                    "ar_strength": preview_ar_strength, "nar_strength": preview_nar_strength}
         if action == "train":
             if assets is None or dataset is None or config is None:
                 raise ValueError("Connect training assets, prepared dataset, and config to train")
@@ -235,9 +277,10 @@ class FL_YuE2_LoadLoRA:
                     names.append(path.relative_to(lora_root()).as_posix())
         return {"required": {"music_model": ("YUE2_MODEL",), "ar_adapter": (names, {"tooltip": "Saved AR LoRA under models/loras/YuE2. A connected trainer adapter takes precedence over this selection."}),
                              "ar_strength": ("FLOAT", {"default": 1.0, "min": 0, "max": 2, "tooltip": "Adapter strength: 0 disables its effect and 1 applies the trained weights at full strength."})},
-                "optional": {"adapter": ("YUE2_ADAPTER",)}}
+                "optional": {"adapter": ("YUE2_ADAPTER",),
+                             "nar_strength": ("FLOAT", {"default": 1.0, "min": 0, "max": 2, "step": 0.05, "tooltip": "Acoustic companion strength: 0 disables the entire NAR adapter, including its pretrained component; 1 applies it fully. Does not change AR strength."})}}
 
-    def load(self, music_model, ar_adapter, ar_strength, adapter=None):
+    def load(self, music_model, ar_adapter, ar_strength, adapter=None, nar_strength=1.0):
         path = str(contained(lora_root(), adapter["ar"])) if adapter and adapter.get("ar") else selected(lora_root(), ar_adapter)
         acoustic = adapter.get("nar", "") if adapter else ""
         if path:
@@ -250,8 +293,8 @@ class FL_YuE2_LoadLoRA:
         paths = [path]
         if acoustic:
             paths.append(str(contained(lora_root(), acoustic)))
-        return (adapters.patch_music(music_model, paths, ar_strength),)
+        return (adapters.patch_music(music_model, paths, ar_strength, nar_strength),)
 
 
 TRAINING_NODES = {c.__name__: c for c in (FL_YuE2_TrainingModels, FL_YuE2_GeminiMusicCaptioner, FL_YuE2_DatasetMaker,
-    FL_YuE2_PrepareDataset, FL_YuE2_TrainConfig, FL_YuE2_LoRATrainer, FL_YuE2_LoadLoRA)}
+    FL_YuE2_PrepareDataset, FL_YuE2_TrainConfig, FL_YuE2_JointTrainConfig, FL_YuE2_LoRATrainer, FL_YuE2_LoadLoRA)}

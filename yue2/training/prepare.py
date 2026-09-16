@@ -9,9 +9,12 @@ from safetensors.torch import load_file
 from scipy.signal import resample_poly
 from transformers import AutoModel, AutoFeatureExtractor
 
-from .data import read_json, write_json, fingerprint, check_dataset
+from .data import read_json, write_json, write_text, fingerprint, check_dataset
 from ..downloads import digest
 from .math import TokenHead
+from .sheetsage import load_transcriber
+from ..abc_score import parse as parse_abc
+from ..tokenizer import YuE2TextTokenizer
 
 
 def load_head(path, device):
@@ -77,9 +80,13 @@ def prepare(request, emit, cancelled):
     root.mkdir(parents=True, exist_ok=True)
     head_hash = digest(Path(assets["head"]))
     feature_version = fingerprint([assets["mert_revision"], "layer20-kit30s-v1"])
-    result = {**source, "head_hash": head_hash, "mode": "ar", "songs": []}
+    planning = request.get("score_planning", "off")
+    if planning not in ("off", "melody", "full"):
+        raise ValueError("Score planning must be off, melody or full")
+    tokenizer = YuE2TextTokenizer(Path(assets["model"]) / "qwen.tiktoken") if planning != "off" else None
+    result = {**source, "version": 2, "head_hash": head_hash, "mode": "ar", "score_planning": planning, "songs": []}
     # Preparation has no backward path; parameters do not require gradients.
-    mert = processor = head = None
+    mert = processor = head = transcriber = None
     try:
         for index, song in enumerate(source["songs"]):
             cancelled()
@@ -108,13 +115,40 @@ def prepare(request, emit, cancelled):
                         parameter.requires_grad_(False)
                 np.save(tokens_path, predict(head, features, cancelled))
             row = {**song, "features": str(feature_path), "tokens": str(tokens_path)}
+            if planning != "off":
+                abc = song.get("abc", "").strip()
+                if not abc:
+                    sheet = assets.get("sheetsage")
+                    if not sheet:
+                        raise ValueError(f"{song['name']}: missing .abc.txt score; enable SheetSage2 transcription or add a reviewed score")
+                    score_version = fingerprint([sheet["revision"], sheet["compat_revision"], planning])
+                    score_path = folder / f"score-{score_version[:16]}.abc"
+                    if score_path.exists():
+                        abc = score_path.read_text(encoding="utf-8")
+                    else:
+                        if transcriber is None:
+                            emit({"type": "status", "message": "Loading SheetSage2 score transcriber"})
+                            transcriber = load_transcriber(sheet)
+                        emit({"type": "status", "message": f"Transcribing score {index + 1}/{len(source['songs'])}: {song['name']}"})
+                        abc = transcriber.transcribe(torch.from_numpy(audio.T), sr, planning)
+                        if transcriber.warnings:
+                            row["score_warnings"] = list(transcriber.warnings)
+                            for warning in transcriber.warnings:
+                                emit({"type": "status", "message": f"{song['name']}: {warning}"})
+                            transcriber.warnings.clear()
+                        write_text(score_path, abc)
+                    row["abc"] = abc
+                    row["abc_path"] = str(score_path)
+                parse_abc(abc)
+                row["abc_ids"] = tokenizer.encode(abc)
+                row["abc_hash"] = fingerprint(abc)
             if request.get("align") and song["lyrics"]:
                 from .alignment import align
                 row["cursor"] = align(song, folder, assets, emit, cancelled)
             result["songs"].append(row)
             emit({"type": "progress", "step": index + 1, "max_steps": len(source["songs"])})
     finally:
-        del mert, processor, head
+        del mert, processor, head, transcriber
     result["fingerprint"] = fingerprint(result)
     path = root / f"prepared-{result['fingerprint'][:16]}.json"
     write_json(path, result)

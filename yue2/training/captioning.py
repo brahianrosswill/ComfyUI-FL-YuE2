@@ -2,6 +2,7 @@
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import json
 import os
+import random
 import time
 import tempfile
 from pathlib import Path
@@ -72,10 +73,11 @@ def listen(client, audio, request, prompt, emit, cancelled):
                 emit({"type": "status", "message": "Temporary Google file cleanup failed; remove it in Google AI Studio"})
 
 
-def caption_audio(audio, request, emit, cancelled, client):
+def caption_audio(audio, request, emit, cancelled, client, output_directory=None):
     task = request["task"]
-    metadata_path = audio.with_suffix(".caption.json")
-    paths = {kind: sidecar(audio, "caption" if kind == "style" else "lyrics") for kind in ("style", "lyrics")}
+    destination = Path(output_directory) / audio.name if output_directory is not None else audio
+    metadata_path = destination.with_suffix(".caption.json")
+    paths = {kind: sidecar(destination, "caption" if kind == "style" else "lyrics") for kind in ("style", "lyrics")}
     requested = [k for k in paths if task == "both" or task == k]
     needed = [k for k in requested if request["replace_existing"] or not paths[k].exists()]
     audio_hash = digest(audio)
@@ -142,6 +144,15 @@ def caption(request, emit, cancelled, client=None):
     if request["task"] not in {"both", "style", "lyrics"}:
         raise ValueError("Unknown caption task")
     result = {"version": 1, "directory": str(files[0].parent), "songs": []}
+    test_directory = None
+    if request.get("test_random", False):
+        cancelled()
+        files = [random.choice(files)]
+        test_directory = Path(request["output"]).parent
+        test_directory.mkdir(parents=True, exist_ok=True)
+        result.update(directory=str(test_directory), source_directory=str(files[0].parent))
+        request = {**request, "replace_existing": True}
+    emit({"type": "progress", "step": 0, "max_steps": len(files), "test_random": bool(test_directory)})
     completed = {}
     stopped, event_lock = Event(), Lock()
 
@@ -162,7 +173,7 @@ def caption(request, emit, cancelled, client=None):
             if client is None:
                 from google import genai
                 owned_client = genai.Client(api_key=key)
-            return caption_audio(audio, request, send, check_cancelled, client if client is not None else owned_client)
+            return caption_audio(audio, request, send, check_cancelled, client if client is not None else owned_client, test_directory)
         finally:
             if owned_client is not None:
                 owned_client.close()

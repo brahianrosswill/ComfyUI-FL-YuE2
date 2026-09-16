@@ -84,7 +84,7 @@ def dataset(directory, trigger, default_style, validation_fraction, seed, captio
     root = files[0].parent
     songs, hashes, errors = [], set(), []
     for audio in files:
-        caption, lyrics = sidecar(audio, "caption"), sidecar(audio, "lyrics")
+        caption, lyrics, score = sidecar(audio, "caption"), sidecar(audio, "lyrics"), sidecar(audio, "abc")
         metadata = audio.with_suffix(".caption.json")
         if not lyrics.is_file():
             errors.append(f"{audio.name}: missing .lyrics.txt (empty for instrumental)")
@@ -111,8 +111,9 @@ def dataset(directory, trigger, default_style, validation_fraction, seed, captio
         identity_file = audio.with_suffix(".song.txt")
         identity = identity_file.read_text(encoding="utf-8").strip() if identity_file.exists() else audio.stem
         songs.append({"name": audio.stem, "audio": str(audio), "sha256": sha, "song": identity,
-                      "sidecar_hashes": {str(p): digest(p) if p.exists() else None for p in (caption, lyrics, metadata, identity_file)},
+                      "sidecar_hashes": {str(p): digest(p) if p.exists() else None for p in (caption, lyrics, score, metadata, identity_file)},
                       "style": f"{trigger.strip()}, {style}" if trigger.strip() else style, "lyrics": text,
+                      "abc": score.read_text(encoding="utf-8").strip() if score.is_file() else "",
                       "seconds": info.duration, "sample_rate": info.samplerate, "channels": info.channels,
                       "instrumental": not text})
     if errors:
@@ -122,7 +123,7 @@ def dataset(directory, trigger, default_style, validation_fraction, seed, captio
     held = set(groups[:count])
     for song in songs:
         song["split"] = "validation" if song["song"] in held else "train"
-    result = {"version": 1, "directory": str(root), "songs": songs, "seed": seed}
+    result = {"version": 2, "directory": str(root), "songs": songs, "seed": seed}
     result["fingerprint"] = fingerprint(result)
     path = root / "yue2_dataset.json"
     write_json(path, result)

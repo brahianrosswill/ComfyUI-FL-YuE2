@@ -7,6 +7,7 @@ import soundfile as sf
 
 from fl_yue2.yue2.training import captioning
 from fl_yue2.yue2.training.data import read_json
+from fl_yue2.yue2.training.nodes import FL_YuE2_GeminiMusicCaptioner
 
 
 def request_for(root, concurrency):
@@ -50,7 +51,7 @@ def test_parallel_completion_keeps_song_order(tmp_path, monkeypatch):
     assert [song["name"] for song in read_json(request["output"])["songs"]] == ["song0", "song1", "song2"]
     for index in range(3):
         assert (tmp_path / f"song{index}.caption.txt").read_text() == f"song{index}"
-    assert [event["step"] for event in events if event["type"] == "progress"] == [1, 2, 3]
+    assert [event["step"] for event in events if event["type"] == "progress"] == [0, 1, 2, 3]
 
 
 def test_cancellation_stops_scheduling(tmp_path, monkeypatch):
@@ -104,3 +105,44 @@ def test_failure_keeps_completed_manifest(tmp_path, monkeypatch):
 def test_invalid_concurrency(value):
     with pytest.raises(ValueError, match="concurrent_requests"):
         captioning.caption({"concurrent_requests": value}, lambda _: None, lambda: None, object())
+
+
+def test_random_preview_uses_prompt_without_changing_dataset(tmp_path, monkeypatch):
+    request = request_for(tmp_path, 3)
+    original = tmp_path / "song1.caption.txt"
+    original.write_text("keep this caption", encoding="utf-8")
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    destination = tmp_path / "preview" / "manifest.json"
+    request.update(test_random=True, output=str(destination), instructions="Focus on evolving percussion")
+    calls = []
+
+    def listen(client, audio, request, prompt, emit, cancelled):
+        calls.append((audio, prompt))
+        return response("new test caption")
+
+    monkeypatch.setattr(captioning.random, "choice", lambda files: files[1])
+    monkeypatch.setattr(captioning, "listen", listen)
+    events = []
+    captioning.caption(request, events.append, lambda: None, object())
+    assert len(calls) == 1
+    assert calls[0][0].name == "song1.wav"
+    assert calls[0][1] == captioning.PROMPT + "\nFocus on evolving percussion"
+    assert all((tmp_path / name).read_bytes() == data for name, data in before.items())
+    assert not (tmp_path / "song1.lyrics.txt").exists()
+    manifest = read_json(destination)
+    assert len(manifest["songs"]) == 1
+    assert manifest["directory"] == str(destination.parent)
+    assert manifest["source_directory"] == str(tmp_path)
+    assert manifest["songs"][0]["audio"] == str(tmp_path / "song1.wav")
+    assert (destination.parent / "song1.caption.txt").read_text() == "new test caption"
+    assert [(e["step"], e["max_steps"]) for e in events if e["type"] == "progress"] == [(0, 1), (1, 1)]
+
+
+def test_caption_cache_tracks_audio_without_repeating_for_new_sidecars(tmp_path):
+    request_for(tmp_path, 1)
+    first = FL_YuE2_GeminiMusicCaptioner.IS_CHANGED(str(tmp_path))
+    (tmp_path / "song0.caption.txt").write_text("new caption", encoding="utf-8")
+    assert FL_YuE2_GeminiMusicCaptioner.IS_CHANGED(str(tmp_path)) == first
+    sf.write(tmp_path / "new.wav", np.zeros(100), 8000)
+    assert FL_YuE2_GeminiMusicCaptioner.IS_CHANGED(str(tmp_path)) != first
+    assert np.isnan(FL_YuE2_GeminiMusicCaptioner.IS_CHANGED(str(tmp_path), test_random=True))
