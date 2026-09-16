@@ -1,14 +1,11 @@
 """Training initialization and portable paired-adapter checkpoints."""
 from pathlib import Path
 
-import torch
-from safetensors import safe_open
 from safetensors.torch import save_file
 
-from ..adapters import targets, read_adapter
 from ..downloads import resolve, digest, MODELS
 from .data import read_json, write_json, contained
-from .math import LoRALinear
+from .acoustic import fold_acoustic, install_acoustic, acoustic_weights
 from .prepare import load_head
 from .trainer import load_model
 
@@ -19,24 +16,9 @@ FORMAT = "fl-yue2-audio-adapter-v1"
 def initialize(assets, mode, rank):
     model = load_model(assets["model"])
     head = load_head(assets["head"], "cuda")
-    initial = read_adapter(assets["initial_nar"])[0] if assets.get("initial_nar") else {}
-    with torch.set_grad_enabled(False):
-        for key in targets(model.config.num_hidden_layers, "nar"):
-            module = model.get_submodule(key)
-            if key + ".lora_down.weight" in initial:
-                delta = initial[key + ".lora_up.weight"].float() @ initial[key + ".lora_down.weight"].float()
-                module.weight.add_(delta.to(module.weight))
-        for module in ("vae2llm", "llm2vae"):
-            for name, suffix in (("weight", ".diff"), ("bias", ".diff_b")):
-                parameter = getattr(model.get_submodule(module), name)
-                if module + suffix in initial:
-                    parameter.add_(initial[module + suffix].to(parameter))
+    initial = fold_acoustic(model, assets.get("initial_nar", ""))
     if mode in ("acoustic", "joint", "conditioned"):
-        for key in targets(model.config.num_hidden_layers, "nar"):
-            parent, name = key.rsplit(".", 1)
-            setattr(model.get_submodule(parent), name, LoRALinear(model.get_submodule(key), rank))
-        model.vae2llm.float().requires_grad_(True)
-        model.llm2vae.float().requires_grad_(True)
+        install_acoustic(model, rank)
     head.requires_grad_(mode in ("head", "joint"))
     head.eval()
     return model, head, initial
@@ -46,21 +28,7 @@ def export_bundle(directory, model, head, initial, identity, assets, mode, step,
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     save_file({k: v.detach().cpu().contiguous() for k, v in head.state_dict().items()}, str(directory / "head.safetensors"))
-    values = {k: v.contiguous() for k, v in initial.items()}
-    if mode in ("acoustic", "joint", "conditioned"):
-        for key in targets(model.config.num_hidden_layers, "nar"):
-            module = model.get_submodule(key)
-            a, b = module.A.detach().cpu(), module.B.detach().cpu()
-            if key + ".lora_down.weight" in initial:
-                a = torch.cat((initial[key + ".lora_down.weight"].float(), a.float()), 0)
-                b = torch.cat((initial[key + ".lora_up.weight"].float(), b.float()), 1)
-            values[key + ".lora_down.weight"] = a.contiguous()
-            values[key + ".lora_up.weight"] = b.contiguous()
-        with safe_open(str(Path(assets["model"]) / "model.safetensors"), framework="pt", device="cpu") as base:
-            for module in ("vae2llm", "llm2vae"):
-                for name, suffix in (("weight", ".diff"), ("bias", ".diff_b")):
-                    value = getattr(model.get_submodule(module), name).detach().cpu().float()
-                    values[module + suffix] = (value - base.get_tensor(module + "." + name).float()).contiguous()
+    values = acoustic_weights(model, initial, assets["model"] if mode != "head" else None, mode in ("acoustic", "joint", "conditioned"))
     if values:
         save_file(values, str(directory / "acoustic.safetensors"), metadata={"format": "fl-yue2-lora-v1", "branch": "nar"})
     manifest = {"format": FORMAT, "mode": mode, "step": step, "base_hash": identity["model"],

@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -9,7 +10,9 @@ from safetensors.torch import load_file, save_file
 
 from fl_yue2.yue2 import nar
 from fl_yue2.yue2.adapters import targets
-from fl_yue2.yue2.training import paired_data, paired_models, paired_prepare
+from fl_yue2.yue2.training import paired_data, paired_models, paired_prepare, acoustic, trainer
+from fl_yue2.yue2.training.trainer import install_lora
+from fl_yue2.yue2.training import nodes as training_nodes
 from fl_yue2.yue2.training import math as training_math
 from fl_yue2.yue2.training.data import read_json, write_json
 from fl_yue2.yue2.training.paired_nodes import FL_YuE2_PairedDataset, FL_YuE2_AudioAdapterConfig
@@ -217,3 +220,82 @@ def test_conditioning_chunks_follow_source_frame_offsets(monkeypatch):
     result = nar.synthesize(None, [1], [0] * 5, 42, conditioner=conditioner, condition=source)
     assert result.shape == (5, 64)
     torch.testing.assert_close(torch.cat(seen), source)
+
+
+def test_acoustic_objective_only_updates_decoder_and_preserves_rng(monkeypatch):
+    monkeypatch.setattr(training_math, "MUSIC_END", 6)
+    monkeypatch.setattr(acoustic, "CODEC_OFFSET", 0)
+    model = tiny_model().requires_grad_(False)
+    install_lora(model, 2)
+    ar_parameters = [p for p in model.parameters() if p.requires_grad]
+    acoustic.install_acoustic(model, 2)
+    item = {"codec": np.array([3, 4, 5], dtype=np.int32), "latents": np.random.default_rng(4).normal(size=(3, 64)).astype(np.float32), "prefix": [1, 2]}
+    before = torch.get_rng_state().clone()
+    loss = acoustic.acoustic_loss(model, item, 42)
+    loss.backward()
+    assert torch.equal(torch.get_rng_state(), before)
+    assert all(p.grad is None for p in ar_parameters)
+    assert model.llm2vae.weight.grad.abs().sum() > 0
+    assert model.model.layers[0].nar_self_attn.q_proj.B.grad.abs().sum() > 0
+    torch.testing.assert_close(acoustic.acoustic_loss(model, item, 42), loss)
+
+
+def test_original_trainer_acoustic_resume_and_ar_isolation(tmp_path, monkeypatch):
+    monkeypatch.setattr(training_math, "MUSIC_END", 6)
+    monkeypatch.setattr(acoustic, "CODEC_OFFSET", 0)
+    monkeypatch.setattr(trainer, "CODEC_OFFSET", 0)
+    monkeypatch.setattr(trainer, "MUSIC_END", 6)
+    base = tiny_model().requires_grad_(False)
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    save_file(base.state_dict(), str(model_dir / "model.safetensors"))
+    def load_model(path):
+        result = tiny_model().requires_grad_(False)
+        result.load_state_dict(base.state_dict())
+        return result
+    monkeypatch.setattr(trainer, "load_model", load_model)
+    monkeypatch.setattr(trainer, "YuE2TextTokenizer", lambda *args: None)
+    monkeypatch.setattr(trainer, "token_prefixes", lambda *args: [1, 2])
+    monkeypatch.setattr(trainer, "check_dataset", lambda *args: None)
+    codec = np.array([3, 4, 5], dtype=np.int32)
+    tokens = tmp_path / "tokens.npy"
+    np.save(tokens, codec)
+    head = tmp_path / "head"
+    head.write_bytes(b"head")
+    regularizer = tmp_path / "regularizer"
+    regularizer.write_bytes(b"regularizer")
+    songs = [{"name": split, "tokens": str(tokens), "style": "music", "lyrics": "", "split": split} for split in ("train", "validation")]
+    dataset = tmp_path / "dataset.json"
+    write_json(dataset, {"fingerprint": "dataset", "head_hash": trainer.digest(head), "songs": songs})
+    monkeypatch.setattr(trainer, "regularizer", lambda _: [{"name": src, "style": "music", "lyrics": "", "src": src, "codec": codec} for src in ("minted", "minted_val")])
+    def targets(songs, *args):
+        for item in songs:
+            item["latents"] = np.random.default_rng(5).normal(size=(3, 64)).astype(np.float32)
+    monkeypatch.setattr(trainer, "prepare_targets", targets)
+    assets = {"model": str(model_dir), "head": str(head), "regularizer": str(regularizer), "model_revision": "test"}
+    config = {"mode": "ar", "seed": 42, "rank": 2, "cursor_weight": 0, "learning_rate": .001, "steps": 4,
+              "save_every": 2, "sequence_tokens": 32, "allow_truncation": False, "warmup_steps": 0,
+              "schedule_steps": 4, "accumulation": 1, "generated_fraction": .5}
+    def request(name, enabled):
+        return {"config": {**config, "train_acoustic": enabled}, "assets": assets, "dataset": str(dataset),
+                "run_directory": str(tmp_path / name), "adapter_directory": str(tmp_path / "exports" / name), "pause_at_checkpoint": False}
+    for name, enabled in (("ar", False), ("joint", True)):
+        trainer.train(request(name, enabled), lambda _: None, lambda: None)
+    ar = load_file(str(tmp_path / "exports/ar/step-000004.safetensors"))
+    joint = load_file(str(tmp_path / "exports/joint/step-000004.safetensors"))
+    assert all(torch.equal(ar[key], joint[key]) for key in ar)
+    resumed = request("resumed", True)
+    trainer.train({**resumed, "stop_after": 2}, lambda _: None, lambda: None)
+    trainer.train({**resumed, "resume": str(tmp_path / "resumed/resume.pt")}, lambda _: None, lambda: None)
+    for filename in ("step-000004.safetensors", "step-000004-nar.safetensors"):
+        first = load_file(str(tmp_path / "exports/joint" / filename))
+        second = load_file(str(tmp_path / "exports/resumed" / filename))
+        assert all(torch.equal(first[key], second[key]) for key in first)
+    run = read_json(tmp_path / "joint/run.json")
+    assert run["metrics"][-1]["acoustic_validation"] > 0
+    assert Path(run["checkpoints"][-1]["acoustic_adapter"]).is_file()
+    monkeypatch.setattr(training_nodes, "lora_root", lambda: tmp_path / "exports")
+    captured = []
+    monkeypatch.setattr(training_nodes.adapters, "patch_music", lambda model, paths, strength: captured.append(paths))
+    training_nodes.FL_YuE2_LoadLoRA().load(None, "joint/step-000004.safetensors", 1.0)
+    assert [Path(path) for path in captured[0]] == [tmp_path / "exports/joint/step-000004.safetensors", tmp_path / "exports/joint/step-000004-nar.safetensors"]

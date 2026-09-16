@@ -37,8 +37,9 @@ def preview(request, emit, cancelled):
         if not audio_path.exists():
             progress("loading")
             paths = [] if step == 0 else [checkpoint["adapter"]]
-            if run["assets"].get("initial_nar"):
-                paths.append(run["assets"]["initial_nar"])
+            acoustic = checkpoint.get("acoustic_adapter", run["assets"].get("initial_nar", ""))
+            if acoustic:
+                paths.append(acoustic)
             patched = patch_music(music, paths) if paths else music
             plan = runtime.make_plan(patched, request["style"], request["lyrics"], request["seed"], "off", "", 4096)
             progress("tokens", 0, round(request["max_seconds"] * 25))

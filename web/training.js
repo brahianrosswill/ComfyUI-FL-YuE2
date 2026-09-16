@@ -190,7 +190,7 @@ class TrainerPanel extends TrainingPanel {
         const legend = section("legend", chart);
         this.series = this.node.comfyClass === "FL_YuE2_AudioAdapterTrainer"
             ? [["loss", "Training", "#06b6d4"], ["artist_validation", "Paired validation", "#f59e0b"], ["wrong_source_flow", "Wrong source", "#8b5cf6"]]
-            : [["loss", "Training", "#06b6d4"], ["artist_validation", "Artist validation", "#f59e0b"], ["generated_validation", "Generated validation", "#8b5cf6"]];
+            : [["loss", "Training", "#06b6d4"], ["artist_validation", "Artist validation", "#f59e0b"], ["generated_validation", "Generated validation", "#8b5cf6"], ["acoustic_validation", "Acoustic validation", "#22c55e"]];
         for (const [, label, color] of this.series) { const el = element("span", legend, label); el.style.color = color; }
         const plot = section("chart-plot", chart); this.chart = section("chart-canvas", plot, "canvas");
         this.status = section("status", content, "div", "Ready to train"); this.status.setAttribute("role", "status");

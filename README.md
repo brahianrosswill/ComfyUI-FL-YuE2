@@ -95,7 +95,7 @@ Interaction choices follow the navigation, drawing, preview and editing patterns
 
 See [training guide](docs/TRAINING.md) for Gemini music captions, AR LoRA training, resume, and checkpoint playback. Training assets download into ComfyUI model folders when queued with download_missing enabled; Python training dependencies are installed separately.
 
-Use [Training Studio](example_workflows/training_studio.json) with your own recordings and captions. Install the optional training dependencies in ComfyUI's Python environment:
+Use [Training Studio](example_workflows/training_studio.json) with your own recordings and captions. The experimental `train_acoustic` option in Train Config learns an acoustic companion alongside the AR LoRA; previews and Load LoRA select both weights automatically. Generation remains text-only. Install the optional training dependencies in ComfyUI's Python environment:
 
 ```bash
 python -m pip install -r requirements-training.txt

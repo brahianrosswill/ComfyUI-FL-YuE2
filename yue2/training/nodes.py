@@ -134,11 +134,14 @@ class FL_YuE2_TrainConfig(io.ComfyNode):
                 io.Boolean.Input("allow_truncation", default=False, tooltip="Allow sequences longer than sequence_tokens to be cut short. Disabled makes oversized examples fail instead of silently losing their endings."),
                 io.Int.Input("steps", default=1600, min=1, max=100000, tooltip="Total optimizer steps to reach, including steps already completed when resuming."), io.Int.Input("save_every", default=200, min=1, max=5000, tooltip="Save a LoRA and resumable training checkpoint every this many optimizer steps. The final step is also saved."),
                 io.Int.Input("schedule_steps", default=3000, min=1, max=100000, tooltip="Length of the learning-rate decay schedule. Keep unchanged when resuming to preserve the schedule."), io.Int.Input("warmup_steps", default=50, min=0, max=10000, tooltip="Initial optimizer steps over which the learning rate rises to its configured value."),
-                io.Int.Input("accumulation", default=2, min=1, max=64, tooltip="Training examples accumulated before each optimizer update. Higher values increase work per step without batching them all in VRAM."), io.Int.Input("seed", default=42, min=0, max=2147483647, tooltip="Random seed for training example selection and LoRA initialization. Keep fixed for reproducible comparisons.")],
+                io.Int.Input("accumulation", default=2, min=1, max=64, tooltip="Training examples accumulated before each optimizer update. Higher values increase work per step without batching them all in VRAM."), io.Int.Input("seed", default=42, min=0, max=2147483647, tooltip="Random seed for training example selection and LoRA initialization. Keep fixed for reproducible comparisons."),
+                io.Boolean.Input("train_acoustic", default=False, optional=True, tooltip="Also train a token-to-audio acoustic companion from your recordings. Adds VAE target preparation and decoder training; source audio is not needed for generation. Checkpoints automatically include both adapters.")],
             outputs=[io.Custom("YUE2_TRAIN_CONFIG").Output()])
 
     @classmethod
     def execute(cls, **kwargs):
+        if not kwargs.get("train_acoustic"):
+            kwargs.pop("train_acoustic", None)
         return io.NodeOutput({"mode": "ar", **kwargs})
 
 
@@ -214,7 +217,7 @@ class FL_YuE2_LoRATrainer:
         if render_previews and any(c.get("preview_settings") != settings or not c.get("preview") or
                                    not contained(directory, c["preview"]).is_file() for c in [run.get("baseline", {}), *run["checkpoints"]]):
             run_worker({"operation": "preview", "run": str(path), **settings}, unique_id)
-        descriptor = {"ar": chosen["adapter"], "nar": run["assets"].get("initial_nar", "")}
+        descriptor = {"ar": chosen["adapter"], "nar": chosen.get("acoustic_adapter", run["assets"].get("initial_nar", ""))}
         return {"ui": {"run": [name], "selected_step": [chosen["step"]]}, "result": (descriptor,)}
 
 

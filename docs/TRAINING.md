@@ -1,6 +1,6 @@
 # AR LoRA training
 
-Training supports AR song-generation LoRAs only. NAR/joint training and acoustic-corpus building have been removed. YuE2 still uses its acoustic model and VAE internally to render audio.
+Training learns AR song-generation LoRAs. Enable `train_acoustic` in Train Config to also adapt the token-to-audio decoder to your recordings. Normal generation still needs only style and lyrics; it does not require a source recording.
 
 ## Models
 
@@ -10,7 +10,7 @@ Training Models exposes named tokenizer/regularizer selections and `download_mis
 - `models/yue2/MERT-v2-FullSong`: pinned MERT encoder and supporting files.
 - `models/yue2/training_assets/tokenizer_head_joint_v4.pt`: [Mothersuperior v4 tokenizer](https://huggingface.co/Mothersuperior/yue2-mothersuperior-realaudio-tokenizer-v4).
 - `models/yue2/training_assets/minted_regularizer_pack.pt`: [public regularizer pack](https://huggingface.co/datasets/Mothersuperior/yue2-minted-corpus).
-- The tokenizer's pretrained acoustic companion is downloaded and converted internally to `models/loras/YuE2/pretrained/`. It is used for rendering, never trained by these nodes.
+- The tokenizer's pretrained acoustic companion is downloaded and converted internally to `models/loras/YuE2/pretrained/`. It is used for rendering and initializes optional acoustic training. Exported acoustic companions include both the starting adapter and the learned update.
 
 Downloads support partial-file resume and checksum verification. Existing valid files work offline. The optional Demucs/MMS alignment weights download only when lyric alignment is requested. Install Python training dependencies from [requirements-training.txt](../requirements-training.txt); workers do not install packages.
 
@@ -20,9 +20,17 @@ Dataset Maker and Gemini accept audio folders relative to ComfyUI's input direct
 
 Each recording needs `.caption.txt` and `.lyrics.txt` sidecars; empty lyrics mean no intelligible vocals. Enter a Google API key in the Gemini Music Captioner node; machine environment keys are not used. The captioner uploads the selected audio to Google. The key is passed to the worker over stdin rather than written to job files. Normal ComfyUI widgets are saved in workflows/history, so clear the key before sharing them. Generated captions are automatically accepted, including existing captions. Use Load captions and Save changes for optional corrections; manual review is not required. Incomplete transcriptions retry shorter intervals with overlapping context; unresolved intervals report their track and times.
 
-Prepare Dataset extracts frozen MERT features and predicts semantic tokens with the selected head. English lyric alignment is optional; disable it and use cursor weight zero for uncertain or processed vocal samples. AR training uses the token regularizer pack, with no VAE-latent preparation or neighbor arrays.
+Prepare Dataset extracts frozen MERT features and predicts semantic tokens with the selected head. English lyric alignment is optional; disable it and use cursor weight zero for uncertain or processed vocal samples. AR training uses the token regularizer pack. With acoustic training enabled, the training worker additionally caches VAE posterior-mean targets under `output/yue2_training/acoustic_targets`; these targets are not needed at inference.
 
 Train Config exposes rank, learning rate, regularizer fraction, cursor weight, sequence budget, steps, checkpoint interval, cosine horizon, warmup, accumulation and seed. With `action=train` and blank `resume`, every queue starts fresh and overwrites the named run, including its old checkpoints and previews. Change `output_name` to keep an earlier experiment. Existing saved AR runs remain available through `use_saved`; changing to v4 does not retokenize or retrain them automatically.
+
+## Optional acoustic companion (experimental)
+
+`train_acoustic` defaults to off, preserving AR-only training. When enabled, each optimizer step also trains a NAR LoRA and audio input/output projections on a window of a real recording. Its semantic tokens are the conditioning; its VAE latents are the loss target, never an extra decoder input. AR gradients, regularizer sampling and random state remain separate. The MERT head and VAE remain fixed.
+
+Acoustic windows are at most 512 frames (20.48 seconds). The companion uses the configured LoRA rank, accumulation, warmup and decay schedule, with learning rates 0.00005 for LoRA and 0.00002 for audio projections. It has its own optimizer and resume state. The minted pack contains no waveform targets, so acoustic updates use real recordings only; AR regularization is unchanged. Acoustic validation reports held-out flow loss at noise times 0.2, 0.5 and 0.8.
+
+The [controlled benchmark](ACOUSTIC_BENCHMARK.md) improved held-out reconstruction but did not consistently improve the requested character in text-only generation. This option therefore remains experimental and off by default. Semantic compression still limits reconstruction fidelity. It does not add paired source-audio injection or train score planning. Enabling it changes the trainable weights and requires a fresh run rather than resuming an AR-only checkpoint.
 
 ## Checkpoints and playback
 
@@ -30,11 +38,11 @@ Adapters are saved under `models/loras/YuE2/<run>/`; metrics, previews and compl
 
 With `render_previews` enabled, the trainer first saves its step-0 resume state and renders a baseline before any optimizer updates. It then renders a sample at every `save_every` checkpoint before continuing training. Training releases GPU memory for inference, then resumes the saved optimizer and random state. Rendering and model reloads add time at each checkpoint; finished samples remain playable while training continues. After interruption, set `resume` to `resume.pt`. Disable previews for uninterrupted training.
 
-A separate inference progress bar shows model loading, generated duration, synthesis steps, decoding chunks and saving. The training counter and loss chart remain unchanged during previews. Baseline - Step 0 is the first playable sample and cannot be selected as an exported LoRA. It uses the starting model and the same acoustic companion, prompt, seed and duration as checkpoint previews. Matching previews are reused on resume; changing preview settings regenerates the comparisons. An older run can generate its missing baseline from its starting model.
+A separate inference progress bar shows model loading, generated duration, synthesis steps, decoding chunks and saving. The training counter and loss chart remain unchanged during previews. Baseline - Step 0 is the first playable sample and cannot be selected as an exported LoRA. It uses the starting model and pretrained acoustic companion with the same prompt, seed and duration as checkpoint previews. Acoustic-enabled checkpoints use their own learned companion. Matching previews are reused on resume; changing preview settings regenerates the comparisons. An older run can generate its missing baseline from its starting model.
 
 Play a validation sample to activate the seek bar below the samples. Click or drag to jump through the audio; elapsed time and duration are displayed. Seeking preserves whether playback is paused or running, and also works for the baseline.
 
-`Use` selects a checkpoint and switches to `use_saved`, which skips preparation and training. Load LoRA exposes AR selection and strength only; connected saved runs retain their original pretrained acoustic companion. New exports record that companion in their metadata for standalone loading.
+`Use` selects a checkpoint and switches to `use_saved`, which skips preparation and training. Load LoRA exposes AR selection and strength only; connected saved runs load the selected checkpoint's learned acoustic companion when present, otherwise the original pretrained companion. AR exports record the companion's relative path in metadata for standalone loading. Keep `step-NNNNNN.safetensors` and `step-NNNNNN-nar.safetensors` together under the same run folder when copying acoustic-enabled checkpoints.
 
 Start with [training_studio.json](../example_workflows/training_studio.json). For a two-step pipeline check, use [training_smoke.json](../example_workflows/training_smoke.json) with your own reviewed audio. The smoke preset explicitly truncates sequences and is not a quality-training preset.
 

@@ -15,7 +15,8 @@ from ..tokenizer import YuE2TextTokenizer
 from ..adapters import targets
 from .data import read_json, read_run, write_run, fingerprint, regularizer, check_dataset
 from .math import LoRALinear, ar_loss
-from ..downloads import digest
+from ..downloads import digest, MODELS
+from .acoustic import fold_acoustic, install_acoustic, acoustic_weights, prepare_targets, acoustic_loss
 
 
 def load_model(path, device="cuda"):
@@ -121,6 +122,9 @@ def train(request, emit, cancelled):
     export = Path(request["adapter_directory"]).resolve()
     export.mkdir(parents=True, exist_ok=True)
     asset_hashes = {key: digest(Path(assets[key])) for key in ("head", "regularizer", "initial_nar") if assets.get(key)}
+    acoustic_enabled = cfg.get("train_acoustic", False)
+    if acoustic_enabled:
+        asset_hashes["acoustic_targets"] = MODELS["YuE2-Vae"]
     signature = fingerprint([prepared["fingerprint"], cfg, assets, asset_hashes])
     resume = request.get("resume", "")
     run_path = run / "run.json"
@@ -128,6 +132,10 @@ def train(request, emit, cancelled):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    if acoustic_enabled:
+        state = rng_state()
+        prepare_targets(songs, run.parent / "acoustic_targets", emit, cancelled)
+        restore_rng(state)
     model = load_model(assets["model"])
     device = next(model.parameters()).device
     install_lora(model, cfg["rank"])
@@ -144,6 +152,20 @@ def train(request, emit, cancelled):
     optimizer = torch.optim.AdamW(groups, betas=(0.9, 0.95), weight_decay=0)
     base_lrs = [g["lr"] for g in groups]
     parameters = [p for g in groups for p in g["params"]]
+    acoustic_optimizer = None
+    acoustic_parameters = []
+    if acoustic_enabled:
+        state = rng_state()
+        initial_acoustic = fold_acoustic(model, assets.get("initial_nar", ""))
+        install_acoustic(model, cfg["rank"])
+        restore_rng(state)
+        acoustic_named = {n: p for n, p in model.named_parameters() if p.requires_grad and n not in named}
+        named.update(acoustic_named)
+        acoustic_parameters = list(acoustic_named.values())
+        acoustic_groups = [{"params": [p for n, p in acoustic_named.items() if n.endswith((".A", ".B"))], "lr": 5e-5},
+                           {"params": [p for n, p in acoustic_named.items() if n.startswith(("vae2llm.", "llm2vae."))], "lr": 2e-5}]
+        acoustic_optimizer = torch.optim.AdamW(acoustic_groups, betas=(.9, .95), weight_decay=0)
+        acoustic_lrs = [g["lr"] for g in acoustic_optimizer.param_groups]
     start_step = 0
     record = {"version": 1, "signature": signature, "mode": mode, "config": cfg, "assets": assets, "dataset": request["dataset"],
               "status": "running", "checkpoints": [], "metrics": [], "step": 0}
@@ -156,6 +178,8 @@ def train(request, emit, cancelled):
         if cursor is not None:
             cursor.load_state_dict(saved["cursor"])
         optimizer.load_state_dict(saved["optimizer"])
+        if acoustic_optimizer is not None:
+            acoustic_optimizer.load_state_dict(saved["acoustic_optimizer"])
         restore_rng(saved["rng"])
         start_step = saved["step"]
         record = read_run(run_path)
@@ -186,11 +210,22 @@ def train(request, emit, cancelled):
         if step > 0:
             path = export / f"step-{step:06d}.safetensors"
             acoustic = Path(assets["initial_nar"]).relative_to(export.parent).as_posix() if assets.get("initial_nar") else ""
+            if acoustic_enabled:
+                acoustic_path = export / f"step-{step:06d}-nar.safetensors"
+                temporary = str(acoustic_path) + ".tmp"
+                save_file(acoustic_weights(model, initial_acoustic, assets["model"]), temporary,
+                          metadata={"format": "fl-yue2-lora-v1", "branch": "nar"})
+                os.replace(temporary, acoustic_path)
+                acoustic = acoustic_path.relative_to(export.parent).as_posix()
             export_adapter(model, path, {"rank": cfg["rank"], "step": step, "base_revision": assets["model_revision"], "head_hash": prepared["head_hash"], "acoustic_adapter": acoustic})
             checkpoint_info = {"step": step, "adapter": str(path), "branch": "ar"}
+            if acoustic_enabled:
+                checkpoint_info["acoustic_adapter"] = str(acoustic_path)
         saved = {"signature": signature, "step": step, "model": {n: p.detach().cpu() for n, p in named.items()},
                  "cursor": cursor.state_dict() if cursor is not None else None,
                  "optimizer": optimizer.state_dict(), "rng": rng_state()}
+        if acoustic_optimizer is not None:
+            saved["acoustic_optimizer"] = acoustic_optimizer.state_dict()
         temporary = run / "resume.tmp"
         torch.save(saved, temporary)
         os.replace(temporary, run / "resume.pt")
@@ -223,6 +258,23 @@ def train(request, emit, cancelled):
                 report.update(metrics)
             norm = torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
             optimizer.step()
+            if acoustic_optimizer is not None:
+                for group, lr in zip(acoustic_optimizer.param_groups, acoustic_lrs):
+                    group["lr"] = lr * mult
+                acoustic_optimizer.zero_grad(set_to_none=True)
+                acoustic_total = 0.0
+                for micro in range(cfg["accumulation"]):
+                    cancelled()
+                    acoustic_seed = seed + step * cfg["accumulation"] + micro
+                    item = random.Random(acoustic_seed).choice(real)
+                    value = acoustic_loss(model, item, acoustic_seed)
+                    if not torch.isfinite(value):
+                        raise FloatingPointError("Non-finite acoustic training loss")
+                    (value / cfg["accumulation"]).backward()
+                    acoustic_total += float(value.detach()) / cfg["accumulation"]
+                torch.nn.utils.clip_grad_norm_(acoustic_parameters, 1.0, error_if_nonfinite=True)
+                acoustic_optimizer.step()
+                report["acoustic_loss"] = acoustic_total
             report.update({"type": "progress", "step": step, "max_steps": cfg["steps"], "lr": optimizer.param_groups[0]["lr"],
                            "seconds": time.monotonic() - elapsed, "gradient_norm": float(norm), "peak_gb": torch.cuda.max_memory_allocated() / 2**30})
             record["step"] = step
@@ -243,6 +295,10 @@ def train(request, emit, cancelled):
                             total += float(value.detach())
                             del value
                         report[label] = total / len(examples)
+                    if acoustic_enabled:
+                        with torch.set_grad_enabled(False):
+                            values = [float(acoustic_loss(model, example, 1234, False, t)) for example in held for t in (.2, .5, .8)]
+                        report["acoustic_validation"] = sum(values) / len(values)
                 finally:
                     restore_rng(rng)
                 save(step)
