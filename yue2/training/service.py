@@ -68,7 +68,8 @@ def run_worker(request, node_id=None, client_id=None, *, api_key=""):
                         elif event["type"] == "error":
                             error = event["message"]
                         if node_id is not None and hasattr(PromptServer, "instance"):
-                            PromptServer.instance.send_sync("fl_yue2.training", {"node": str(node_id), "job": job.stem, "operation": request["operation"], **event}, client_id)
+                            operation = {"paired_train": "train", "paired_preview": "preview"}.get(request["operation"], request["operation"])
+                            PromptServer.instance.send_sync("fl_yue2.training", {"node": str(node_id), "job": job.stem, "operation": operation, **event}, client_id)
                 process.wait()
             if process.returncode or result is None:
                 raise RuntimeError(error or f"YuE2 worker failed; see {job.with_suffix('.log')}")
@@ -88,7 +89,7 @@ def run_worker(request, node_id=None, client_id=None, *, api_key=""):
                     process.wait(timeout=10)
             if process is not None:
                 process.stdout.close()
-            if cancel_path.exists() and request["operation"] == "train":
+            if cancel_path.exists() and request["operation"] in ("train", "paired_train"):
                 path = Path(request["run_directory"]) / "run.json"
                 if path.exists():
                     run = read_run(path)

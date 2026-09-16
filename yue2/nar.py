@@ -55,8 +55,9 @@ def attention(q, k, v, causal=False):
 class CachedNAR:
     """One original acoustic chunk; AR prefix KV is invariant during the ODE."""
 
-    def __init__(self, model, chunk: Chunk):
+    def __init__(self, model, chunk: Chunk, conditioning=None, zero_conditioning=None, condition_scale=1.0):
         self.model, self.chunk = model, chunk
+        self.conditioning, self.zero_conditioning, self.condition_scale = conditioning, zero_conditioning, condition_scale
         weight = next(model.vae2llm.parameters())
         self.device, self.dtype = weight.device, weight.dtype
         if chunk.noise.ndim != 2 or chunk.noise.shape[1] != 64 or len(chunk.noise) < 1:
@@ -92,6 +93,13 @@ class CachedNAR:
             x = x + layer.mlp(layer.post_attention_layernorm(x))
 
     def velocity(self, state, raw_t):
+        value = self._velocity(state, raw_t, self.conditioning)
+        if self.zero_conditioning is not None and self.condition_scale != 1.0:
+            zero = self._velocity(state, raw_t, self.zero_conditioning)
+            value = zero + self.condition_scale * (value - zero)
+        return value
+
+    def _velocity(self, state, raw_t, conditioning):
         model = self.model
         if tuple(state.shape) != tuple(self.chunk.noise.shape):
             raise ValueError("ODE state shape changed")
@@ -100,7 +108,9 @@ class CachedNAR:
         x = model.vae2llm(x_nar[None])
         x = x + model.time_embedder(shifted.expand(self.nar_length))[None]
         x = x + self.pos_emb
-        for layer, (ar_k, ar_v) in zip(model.model.layers, self.cache):
+        for index, (layer, (ar_k, ar_v)) in enumerate(zip(model.model.layers, self.cache)):
+            if conditioning is not None and index in conditioning:
+                x = x + conditioning[index].to(x.dtype)
             q, k, v = layer.nar_self_attn.project_qkv(layer.nar_input_layernorm(x), self.cos, self.sin)
             k, v = torch.cat((ar_k, k[0])), torch.cat((ar_v, v[0]))
             h = self._attention(q[0], k, v)
@@ -141,15 +151,26 @@ class CachedNAR:
     def close(self):
         self.cache.clear()
         self.cos = self.sin = self.pos_emb = None
+        self.conditioning = self.zero_conditioning = None
 
 
-def synthesize(model, prefix, codec, seed, steps=32, cancelled=None, on_progress=None):
+def synthesize(model, prefix, codec, seed, steps=32, cancelled=None, on_progress=None, *, conditioner=None, condition=None, condition_scale=1.0):
+    if conditioner is not None and (condition is None or tuple(condition.shape) != (len(codec), 64)):
+        raise ValueError("Source conditioning must have one 64-channel latent per semantic frame")
     chunks = song_chunks(prefix, codec, seed)
     output = []
+    offset = 0
     for chunk_index, chunk in enumerate(chunks):
         if cancelled is not None and cancelled():
             raise InterruptedError("Cancelled before acoustic prefill")
-        engine = CachedNAR(model, chunk)
+        conditioned = zero = None
+        if conditioner is not None:
+            weight = next(conditioner.parameters())
+            source = condition[offset:offset + len(chunk.noise)].to(device=weight.device, dtype=weight.dtype)
+            conditioned = conditioner(source)
+            if condition_scale != 1.0:
+                zero = conditioner(torch.zeros_like(source))
+        engine = CachedNAR(model, chunk, conditioned, zero, condition_scale)
         try:
             def progress(completed, total):
                 if on_progress is not None:
@@ -157,4 +178,5 @@ def synthesize(model, prefix, codec, seed, steps=32, cancelled=None, on_progress
             output.append(engine.solve(steps, cancelled, progress))
         finally:
             engine.close()
+        offset += len(chunk.noise)
     return torch.cat(output, dim=0)

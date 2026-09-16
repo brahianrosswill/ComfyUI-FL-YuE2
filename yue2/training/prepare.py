@@ -27,8 +27,8 @@ def normalize(features):
     return (features - features.mean(0)) / (features.std(0) + 1e-5)
 
 
-def predict(head, features, cancelled):
-    features = normalize(features)
+def predict(head, features, cancelled, input_normalized=False):
+    features = features.astype(np.float32) if input_normalized else normalize(features)
     total, window = len(features), head.pos.shape[1]
     out = np.zeros(total, dtype=np.int32)
     starts = list(range(0, max(1, total - window + 1), window // 2))

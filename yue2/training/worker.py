@@ -30,7 +30,9 @@ def main():
         print("YUE2_EVENT " + json.dumps(value, allow_nan=False), flush=True)
 
     functions = {"prepare": ("training.prepare", "prepare"), "train": ("training.trainer", "train"), "caption": ("training.captioning", "caption"),
-                 "preview": ("training.preview", "preview")}
+                 "preview": ("training.preview", "preview"), "paired_prepare": ("training.paired_prepare", "prepare_pairs"),
+                 "paired_train": ("training.paired_train", "train_pairs"), "paired_preview": ("training.paired_infer", "preview_pairs"),
+                 "paired_infer": ("training.paired_infer", "infer")}
     try:
         module, function = functions[request["operation"]]
         result = getattr(importlib.import_module(f"{package.__name__}.{module}"), function)(request, emit, cancelled)

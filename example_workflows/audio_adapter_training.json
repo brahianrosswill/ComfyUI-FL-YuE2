@@ -1,0 +1,923 @@
+{
+  "last_node_id": 36,
+  "last_link_id": 33,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "FL_YuE2_TrainingModels",
+      "pos": [
+        80,
+        100
+      ],
+      "size": [
+        424.9391468879704,
+        106
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "tokenizer_head",
+          "name": "tokenizer_head",
+          "type": "COMBO",
+          "widget": {
+            "name": "tokenizer_head"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "regularizer",
+          "name": "regularizer",
+          "type": "COMBO",
+          "widget": {
+            "name": "regularizer"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "download_missing",
+          "name": "download_missing",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "download_missing"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_TRAINING_ASSETS",
+          "name": "YUE2_TRAINING_ASSETS",
+          "type": "YUE2_TRAINING_ASSETS",
+          "links": [
+            27,
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_TrainingModels",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "tokenizer_head": true,
+            "regularizer": true,
+            "download_missing": true
+          },
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "tokenizer_head_joint_v4.pt",
+        "minted_regularizer_pack.pt",
+        true
+      ],
+      "widgets_values_named": {
+        "tokenizer_head": "tokenizer_head_joint_v4.pt",
+        "regularizer": "minted_regularizer_pack.pt",
+        "download_missing": true
+      },
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 29,
+      "type": "FL_YuE2_PairedDataset",
+      "pos": [
+        80,
+        320
+      ],
+      "size": [
+        400,
+        208
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "source_directory",
+          "name": "source_directory",
+          "type": "STRING",
+          "widget": {
+            "name": "source_directory"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "target_directory",
+          "name": "target_directory",
+          "type": "STRING",
+          "widget": {
+            "name": "target_directory"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "default_style",
+          "name": "default_style",
+          "type": "STRING",
+          "widget": {
+            "name": "default_style"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "validation_fraction",
+          "name": "validation_fraction",
+          "type": "FLOAT",
+          "widget": {
+            "name": "validation_fraction"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_AUDIO_PAIRS",
+          "name": "YUE2_AUDIO_PAIRS",
+          "type": "YUE2_AUDIO_PAIRS",
+          "links": [
+            26
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_PairedDataset",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "yue2_pairs/source",
+        "yue2_pairs/target",
+        "instrumental electronic music",
+        0.2,
+        42
+      ],
+      "widgets_values_named": {
+        "source_directory": "yue2_pairs_dev/source",
+        "target_directory": "yue2_pairs_dev/target",
+        "default_style": "instrumental deep dub music, warm low-pass filtered sound",
+        "validation_fraction": 0.25,
+        "seed": 42
+      },
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 30,
+      "type": "FL_YuE2_PrepareAudioPairs",
+      "pos": [
+        560,
+        130
+      ],
+      "size": [
+        400,
+        270
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "dataset",
+          "name": "dataset",
+          "type": "YUE2_AUDIO_PAIRS",
+          "link": 26
+        },
+        {
+          "localized_name": "assets",
+          "name": "assets",
+          "type": "YUE2_TRAINING_ASSETS",
+          "link": 27
+        },
+        {
+          "localized_name": "cache_directory",
+          "name": "cache_directory",
+          "type": "STRING",
+          "widget": {
+            "name": "cache_directory"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_PREPARED_AUDIO_PAIRS",
+          "name": "YUE2_PREPARED_AUDIO_PAIRS",
+          "type": "YUE2_PREPARED_AUDIO_PAIRS",
+          "links": [
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_PrepareAudioPairs",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "paired_features",
+        ""
+      ],
+      "widgets_values_named": {
+        "cache_directory": "paired_features",
+        "yue2_training": ""
+      },
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 31,
+      "type": "FL_YuE2_AudioAdapterConfig",
+      "pos": [
+        80,
+        630
+      ],
+      "size": [
+        420,
+        420
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "mode",
+          "name": "mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_every",
+          "name": "save_every",
+          "type": "INT",
+          "widget": {
+            "name": "save_every"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "rank",
+          "name": "rank",
+          "type": "INT",
+          "widget": {
+            "name": "rank"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "window_frames",
+          "name": "window_frames",
+          "type": "INT",
+          "widget": {
+            "name": "window_frames"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "head_learning_rate",
+          "name": "head_learning_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "head_learning_rate"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "acoustic_learning_rate",
+          "name": "acoustic_learning_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "acoustic_learning_rate"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "anchor_weight",
+          "name": "anchor_weight",
+          "type": "FLOAT",
+          "widget": {
+            "name": "anchor_weight"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "source_replay",
+          "name": "source_replay",
+          "type": "FLOAT",
+          "widget": {
+            "name": "source_replay"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "accumulation",
+          "name": "accumulation",
+          "type": "INT",
+          "widget": {
+            "name": "accumulation"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "warmup_steps",
+          "name": "warmup_steps",
+          "type": "INT",
+          "widget": {
+            "name": "warmup_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_AUDIO_TRAIN_CONFIG",
+          "name": "YUE2_AUDIO_TRAIN_CONFIG",
+          "type": "YUE2_AUDIO_TRAIN_CONFIG",
+          "links": [
+            29
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_AudioAdapterConfig",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "conditioned",
+        1000,
+        100,
+        64,
+        200,
+        1e-05,
+        5e-05,
+        0.05,
+        0,
+        2,
+        50,
+        42,
+        2e-05,
+        0.001,
+        0.1
+      ],
+      "widgets_values_named": {
+        "mode": "acoustic",
+        "steps": 40,
+        "save_every": 20,
+        "rank": 8,
+        "window_frames": 200,
+        "head_learning_rate": 1e-05,
+        "acoustic_learning_rate": 0.0003,
+        "anchor_weight": 0.05,
+        "source_replay": 0,
+        "accumulation": 1,
+        "warmup_steps": 2,
+        "seed": 42
+      },
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 33,
+      "type": "LoadAudio",
+      "pos": [
+        1580,
+        130
+      ],
+      "size": [
+        282.798828125,
+        136
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "COMBO",
+          "widget": {
+            "name": "audio"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "audioUI",
+          "name": "audioUI",
+          "type": "AUDIO_UI",
+          "widget": {
+            "name": "audioUI"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "AUDIOUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "AUDIO",
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            31
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadAudio",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "example.wav",
+        null,
+        null
+      ],
+      "widgets_values_named": {
+        "audio": "yue2_pair_validation_source.flac",
+        "upload": null
+      }
+    },
+    {
+      "id": 34,
+      "type": "FL_YuE2_AudioToAudio",
+      "pos": [
+        1580,
+        400
+      ],
+      "size": [
+        400,
+        258
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 31
+        },
+        {
+          "localized_name": "adapter",
+          "name": "adapter",
+          "shape": 7,
+          "type": "YUE2_AUDIO_ADAPTER",
+          "link": 32
+        },
+        {
+          "localized_name": "adapter_file",
+          "name": "adapter_file",
+          "type": "COMBO",
+          "widget": {
+            "name": "adapter_file"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "style",
+          "name": "style",
+          "type": "STRING",
+          "widget": {
+            "name": "style"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lyrics",
+          "name": "lyrics",
+          "type": "STRING",
+          "widget": {
+            "name": "lyrics"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampling_steps",
+          "name": "sampling_steps",
+          "type": "INT",
+          "widget": {
+            "name": "sampling_steps"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "AUDIO",
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            33
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_AudioToAudio",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "none",
+        "instrumental electronic music",
+        "",
+        42,
+        "fixed",
+        32,
+        1.0
+      ],
+      "widgets_values_named": {
+        "adapter_file": "none",
+        "style": "instrumental deep dub music, warm low-pass filtered sound",
+        "lyrics": "",
+        "seed": 42,
+        "control_after_generate": "fixed",
+        "sampling_steps": 16
+      },
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    },
+    {
+      "id": 35,
+      "type": "PreviewAudio",
+      "pos": [
+        1580,
+        770
+      ],
+      "size": [
+        270,
+        88
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 33
+        },
+        {
+          "localized_name": "audioUI",
+          "name": "audioUI",
+          "type": "AUDIO_UI",
+          "widget": {
+            "name": "audioUI"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewAudio",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
+    },
+    {
+      "id": 36,
+      "type": "MarkdownNote",
+      "pos": [
+        560,
+        520
+      ],
+      "size": [
+        450,
+        360
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "## Paired audio adapter training\nSet the source and target folders. Match filenames and align durations. Use .song.txt sidecars to keep excerpts from the same song in one split.\n\nSelect a source file in Load Audio. Example audio is not bundled.\n\nChoose an output name, then Run to prepare, train, preview and infer. For saved inference choose action=use_saved.\n\nResume with resume.pt and unchanged configuration/seeds. See docs/AUDIO_ADAPTERS.md."
+      ],
+      "widgets_values_named": {
+        "text": "## Paired audio-to-audio test\nSource: original 8-second excerpts.\nTarget: aligned low-pass filtered audio.\n6 training songs / 2 held-out songs.\n\nTrainer: **use_saved**, step 40. Run to process Load Audio with the saved adapter.\n\nPlay Source, Target, Baseline and S40; scrub with the seek bar.\n\nFor your own pairs, set the folders, choose a new output name, and switch action to train. Keep both seeds fixed when resuming.\n\nExisting AR nodes above are muted."
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 32,
+      "type": "FL_YuE2_AudioAdapterTrainer",
+      "pos": [
+        1080,
+        130
+      ],
+      "size": [
+        430,
+        740
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "assets",
+          "name": "assets",
+          "shape": 7,
+          "type": "YUE2_TRAINING_ASSETS",
+          "link": 30
+        },
+        {
+          "localized_name": "dataset",
+          "name": "dataset",
+          "shape": 7,
+          "type": "YUE2_PREPARED_AUDIO_PAIRS",
+          "link": 28
+        },
+        {
+          "localized_name": "config",
+          "name": "config",
+          "shape": 7,
+          "type": "YUE2_AUDIO_TRAIN_CONFIG",
+          "link": 29
+        },
+        {
+          "localized_name": "action",
+          "name": "action",
+          "type": "COMBO",
+          "widget": {
+            "name": "action"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_name",
+          "name": "output_name",
+          "type": "STRING",
+          "widget": {
+            "name": "output_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resume",
+          "name": "resume",
+          "type": "STRING",
+          "widget": {
+            "name": "resume"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "selected_step",
+          "name": "selected_step",
+          "type": "INT",
+          "widget": {
+            "name": "selected_step"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "render_previews",
+          "name": "render_previews",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "render_previews"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview_seconds",
+          "name": "preview_seconds",
+          "type": "INT",
+          "widget": {
+            "name": "preview_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview_seed",
+          "name": "preview_seed",
+          "type": "INT",
+          "widget": {
+            "name": "preview_seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampling_steps",
+          "name": "sampling_steps",
+          "type": "INT",
+          "widget": {
+            "name": "sampling_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "validation_index",
+          "name": "validation_index",
+          "type": "INT",
+          "widget": {
+            "name": "validation_index"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "YUE2_AUDIO_ADAPTER",
+          "name": "YUE2_AUDIO_ADAPTER",
+          "type": "YUE2_AUDIO_ADAPTER",
+          "links": [
+            32
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FL_YuE2_AudioAdapterTrainer",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "train",
+        "my_audio_adapter",
+        "",
+        0,
+        true,
+        8,
+        42,
+        32,
+        0,
+        1.0
+      ],
+      "widgets_values_named": {
+        "action": "use_saved",
+        "output_name": "paired_lowpass_validated",
+        "resume": "",
+        "selected_step": 40,
+        "render_previews": true,
+        "preview_seconds": 8,
+        "preview_seed": 42,
+        "sampling_steps": 16,
+        "validation_index": 0,
+        "yue2_training": ""
+      },
+      "color": "#16727c",
+      "bgcolor": "#4F0074"
+    }
+  ],
+  "links": [
+    [
+      26,
+      29,
+      0,
+      30,
+      0,
+      "YUE2_AUDIO_PAIRS"
+    ],
+    [
+      27,
+      1,
+      0,
+      30,
+      1,
+      "YUE2_TRAINING_ASSETS"
+    ],
+    [
+      28,
+      30,
+      0,
+      32,
+      1,
+      "YUE2_PREPARED_AUDIO_PAIRS"
+    ],
+    [
+      29,
+      31,
+      0,
+      32,
+      2,
+      "YUE2_AUDIO_TRAIN_CONFIG"
+    ],
+    [
+      30,
+      1,
+      0,
+      32,
+      0,
+      "YUE2_TRAINING_ASSETS"
+    ],
+    [
+      31,
+      33,
+      0,
+      34,
+      0,
+      "AUDIO"
+    ],
+    [
+      32,
+      32,
+      0,
+      34,
+      1,
+      "YUE2_AUDIO_ADAPTER"
+    ],
+    [
+      33,
+      34,
+      0,
+      35,
+      0,
+      "AUDIO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        20,
+        60
+      ]
+    }
+  },
+  "version": 0.4
+}

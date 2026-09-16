@@ -7,6 +7,7 @@ from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
 from ..model import attention
+from ..protocol import MUSIC_END
 
 
 class TokenHead(nn.Module):
@@ -79,3 +80,34 @@ def ar_loss(model, ids, prefix_length, cursor=None, cursor_head=None, checkpoint
         scores = query @ h[begin:end].float().T / math.sqrt(h.shape[-1])
         cursor_loss = -(scores.log_softmax(-1) * targets[:count]).sum(-1).mean()
     return loss, cursor_loss
+
+
+def nar_layer(layer, x, ar_k, ar_v, cos, sin):
+    q, k, v = qkv(layer.nar_self_attn, layer.nar_input_layernorm(x), cos, sin)
+    x = x + layer.nar_self_attn.o_proj(attention(q, torch.cat((ar_k, k), 1), torch.cat((ar_v, v), 1)).flatten(2))
+    return x + layer.nar_mlp(layer.nar_pre_mlp_layernorm(x))
+
+
+def flow_loss(model, prefix, codec_embeddings, target, t, noise, train_head, training=True, conditioning=None):
+    backbone = model.model
+    device = target.device
+    pre = backbone.embed_tokens(torch.tensor(prefix, device=device))
+    end = backbone.embed_tokens(torch.tensor([MUSIC_END], device=device))
+    x = torch.cat((pre, codec_embeddings.to(pre.dtype), end), 0)[None]
+    length, frames = x.shape[1], len(target)
+    cos, sin = backbone.rotary_emb(torch.arange(length, device=device)[None])
+    cache = []
+    with torch.set_grad_enabled(training and train_head):
+        for layer in backbone.layers:
+            x, k, v = checkpoint(ar_layer, layer, x, cos, sin, use_reentrant=False) if training and train_head else ar_layer(layer, x, cos, sin)
+            cache.append((k, v))
+    cos, sin = backbone.rotary_emb(torch.arange(length, length + frames + 2, device=device)[None])
+    positions = torch.arange(frames + 2, device=device).clamp(max=model.config.max_latent_frames - 1)
+    shifted = model._shift_t_value(math.log(t / (1 - t)), device, pre.dtype)
+    x = model.vae2llm(F.pad(t * noise + (1 - t) * target, (0, 0, 1, 1))[None]).to(pre.dtype)
+    x = x + model.time_embedder(shifted.expand(frames + 2))[None] + model.latent_pos_embed(positions)[None]
+    for index, (layer, (k, v)) in enumerate(zip(backbone.layers, cache)):
+        if conditioning is not None and index in conditioning:
+            x = x + conditioning[index].to(x.dtype)
+        x = checkpoint(nar_layer, layer, x, k, v, cos, sin, use_reentrant=False) if training else nar_layer(layer, x, k, v, cos, sin)
+    return F.mse_loss(model.llm2vae(backbone.norm(x))[0, 1:-1].float(), noise - target)

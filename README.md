@@ -105,6 +105,10 @@ Queuing `train` with blank `resume` starts fresh and overwrites the named run an
 
 Generated captions are accepted automatically and remain editable. With previews enabled, a step-0 baseline renders before training starts, followed by a sample at each checkpoint. A separate inference progress bar tracks sample generation before training resumes. `Use` selects a saved checkpoint for inference without retraining.
 
+Paired **audio-to-audio adapters** have a separate [training guide](docs/AUDIO_ADAPTERS.md). Train from aligned source/target recordings with continuous source-audio conditioning, acoustic LoRAs, or source encoder head adaptation. The trainer compares source, target, step-0 baseline and saved checkpoints with playable validation samples. The screenshot below shows the real conditioned low-pass training run.
+
+![Paired audio adapter training and inference in ComfyUI](assets/paired-audio-training.png)
+
 ## Development and validation
 
 Python implementation lives in `yue2/`, including `yue2/training/`. The root `__init__.py` registers the nodes; browser widgets live in `web/` and supporting documentation in `docs/`. Example graphs remain in `example_workflows/`.

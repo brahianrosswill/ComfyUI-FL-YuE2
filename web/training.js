@@ -98,14 +98,17 @@ class TrainingPanel {
     }
     createUI() {
         const caption = this.caption;
+        const pairedPrepare = this.node.comfyClass === "FL_YuE2_PrepareAudioPairs";
         this.root = element("div"); this.root.className = "yue2-training";
-        element("h3", this.root, caption ? "Music captions & lyrics" : "YuE2 training studio");
-        this.status = element("div", this.root, caption ? "Enter a Google API key above, then queue to send selected recordings to Google." : "Queue to begin. Saved checkpoints remain available after interruption.");
+        element("h3", this.root, pairedPrepare ? "Prepare audio pairs" : caption ? "Music captions & lyrics" : "YuE2 training studio");
+        this.status = element("div", this.root, pairedPrepare ? "Queue to encode aligned source and target recordings." : caption ? "Enter a Google API key above, then queue to send selected recordings to Google." : "Queue to begin. Saved checkpoints remain available after interruption.");
         this.progress = element("progress", this.root); this.progress.max = 1; this.progress.value = 0;
         this.stats = element("small", this.root);
-        if (!caption) { this.chart = element("canvas", this.root); this.chart.width = 900; this.chart.height = 220; }
-        this.refresh = element("button", this.root, caption ? "Load captions" : "Refresh saved run");
-        this.refresh.onclick = () => this.load().catch(e => this.status.textContent = e.message);
+        if (!caption && !pairedPrepare) { this.chart = element("canvas", this.root); this.chart.width = 900; this.chart.height = 220; }
+        if (!pairedPrepare) {
+            this.refresh = element("button", this.root, caption ? "Load captions" : "Refresh saved run");
+            this.refresh.onclick = () => this.load().catch(e => this.status.textContent = e.message);
+        }
         this.items = element("div", this.root);
     }
     setStatus(message) { this.status.textContent = message; }
@@ -185,7 +188,9 @@ class TrainerPanel extends TrainingPanel {
         this.fill = section("progress-fill", this.progress);
         const chart = section("chart-section", content); section("chart-header", chart, "div", "Loss History");
         const legend = section("legend", chart);
-        this.series = [["loss", "Training", "#06b6d4"], ["artist_validation", "Artist validation", "#f59e0b"], ["generated_validation", "Generated validation", "#8b5cf6"]];
+        this.series = this.node.comfyClass === "FL_YuE2_AudioAdapterTrainer"
+            ? [["loss", "Training", "#06b6d4"], ["artist_validation", "Paired validation", "#f59e0b"], ["wrong_source_flow", "Wrong source", "#8b5cf6"]]
+            : [["loss", "Training", "#06b6d4"], ["artist_validation", "Artist validation", "#f59e0b"], ["generated_validation", "Generated validation", "#8b5cf6"]];
         for (const [, label, color] of this.series) { const el = element("span", legend, label); el.style.color = color; }
         const plot = section("chart-plot", chart); this.chart = section("chart-canvas", plot, "canvas");
         this.status = section("status", content, "div", "Ready to train"); this.status.setAttribute("role", "status");
@@ -280,7 +285,7 @@ class TrainerPanel extends TrainingPanel {
         this.seekBar.setAttribute("aria-valuetext", audio ? `${clock(current)} of ${clock(duration)}` : "No sample selected");
     }
     showCheckpoints(run, name) {
-        const samples = [...(run.baseline ? [run.baseline] : []), ...run.checkpoints];
+        const samples = [...(run.references || []), ...(run.baseline ? [run.baseline] : []), ...run.checkpoints];
         const existing = new Map([...this.items.children].map(tile => [tile.dataset.step, tile]));
         for (const tile of existing.values()) {
             const checkpoint = samples.find(c => String(c.step) === tile.dataset.step);
@@ -297,9 +302,9 @@ class TrainerPanel extends TrainingPanel {
             const tile = element("div",this.items); tile.className="yue2-trainer-preview-tile"; tile.dataset.step=checkpoint.step;
             tile.dataset.run=name; tile.dataset.preview=checkpoint.preview || "";
             const play = element("button",tile,"\u25b6"); play.className="yue2-trainer-play-btn"; play.setAttribute("aria-label",`Play checkpoint ${checkpoint.step}`);
-            const label = element("div",tile,checkpoint.step === 0 ? "Baseline - Step 0" : `S${checkpoint.step}`); label.className="tile-label";
+            const label = element("div",tile,checkpoint.label || (checkpoint.step === 0 ? "Baseline - Step 0" : `S${checkpoint.step}`)); label.className="tile-label";
             const select = element("button",tile,"Use"); select.className="yue2-trainer-select";
-            select.hidden = checkpoint.step === 0;
+            select.hidden = checkpoint.step <= 0;
             select.setAttribute("aria-label",`Use checkpoint ${checkpoint.step}`);
             select.onclick=()=>{
                 this.node.widgets.find(w=>w.name==="selected_step").value=checkpoint.step;
@@ -317,7 +322,7 @@ class TrainerPanel extends TrainingPanel {
             const stopped=()=>{play.textContent="\u25b6";play.classList.remove("playing");play.setAttribute("aria-label",`Play checkpoint ${checkpoint.step}`);};
             audio.onpause=stopped;audio.onended=stopped;
             play.onclick=async()=>{
-                this.activeAudio = audio; this.activeSample = checkpoint.step === 0 ? "Baseline - Step 0" : `Step ${checkpoint.step}`;
+                this.activeAudio = audio; this.activeSample = checkpoint.label || (checkpoint.step === 0 ? "Baseline - Step 0" : `Step ${checkpoint.step}`);
                 this.updateSeek();
                 if (!audio.paused) {audio.pause();return;}
                 this.items.querySelectorAll("audio").forEach(other=>{if(other!==audio){other.pause();other.currentTime=0;}});
@@ -345,15 +350,16 @@ class TrainerPanel extends TrainingPanel {
 app.registerExtension({
     name:"FL.YuE2.Training",
     beforeRegisterNodeDef(type, data) {
-        if (!["FL_YuE2_GeminiMusicCaptioner", "FL_YuE2_LoRATrainer", "FL_YuE2_PrepareDataset"].includes(data.name)) return;
+        if (!["FL_YuE2_GeminiMusicCaptioner", "FL_YuE2_LoRATrainer", "FL_YuE2_PrepareDataset", "FL_YuE2_AudioAdapterTrainer", "FL_YuE2_PrepareAudioPairs"].includes(data.name)) return;
         const created = type.prototype.onNodeCreated, executed = type.prototype.onExecuted, removed = type.prototype.onRemoved, configured = type.prototype.onConfigure;
         type.prototype.onNodeCreated = function() {
             created?.apply(this, arguments); this.properties ||= {};
-            const trainer = data.name === "FL_YuE2_LoRATrainer";
+            const trainer = ["FL_YuE2_LoRATrainer", "FL_YuE2_AudioAdapterTrainer"].includes(data.name);
+            const pairedPrepare = data.name === "FL_YuE2_PrepareAudioPairs";
             this.yue2Training = trainer ? new TrainerPanel(this, false) : new TrainingPanel(this, data.name === "FL_YuE2_GeminiMusicCaptioner");
-            const widget = this.addDOMWidget("yue2_training", "custom", this.yue2Training.root, {serialize:false, hideOnZoom:false, getMinHeight: () => trainer ? 400 : 450});
-            if (!trainer) widget.computeSize = () => [520, 450];
-            this.setSize([Math.max(trainer ? 400 : 550,this.size[0]), Math.max(trainer ? 500 : 760,this.size[1])]);
+            const widget = this.addDOMWidget("yue2_training", "custom", this.yue2Training.root, {serialize:false, hideOnZoom:false, getMinHeight: () => pairedPrepare ? 150 : trainer ? 400 : 450});
+            if (!trainer) widget.computeSize = () => pairedPrepare ? [360, 150] : [520, 450];
+            this.setSize([Math.max(trainer || pairedPrepare ? 400 : 550,this.size[0]), Math.max(pairedPrepare ? 270 : trainer ? 500 : 760,this.size[1])]);
         };
         type.prototype.onExecuted = function(message) { executed?.apply(this,arguments); if (message.run) this.properties.yue2_run = message.run[0]; if (message.captions) this.properties.yue2_captions = message.captions[0]; this.yue2Training?.load().catch(e => this.yue2Training.status.textContent = e.message); };
         type.prototype.onConfigure = function() { configured?.apply(this,arguments); this.yue2Training?.load().catch(() => {}); };
