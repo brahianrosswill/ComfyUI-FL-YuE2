@@ -6,6 +6,7 @@ from pathlib import Path
 import torch
 from safetensors.torch import load_file
 import comfy.model_management as mm
+import comfy.ops
 from comfy.model_patcher import ModelPatcher
 from comfy.utils import ProgressBar
 
@@ -37,7 +38,11 @@ class MusicModel:
         c = self.patcher.model.config
         kv_bytes = 2 * c.num_hidden_layers * c.num_key_value_heads * c.head_dim * tokens * 2 * branches
         mm.load_models_gpu([self.patcher], memory_required=kv_bytes + 2 * 1024**3, force_full_load=True)
-        return self.patcher.model
+        model = self.patcher.model
+        for layer in model.modules():
+            if isinstance(layer, comfy.ops.manual_cast.Linear) and layer.weight.device == self.patcher.load_device:
+                layer.comfy_cast_weights = False
+        return model
 
 
 def load_models(download_missing=True, model_directory=None):
